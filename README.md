@@ -66,6 +66,14 @@ mvn verify
 java -jar target/fcl-1.0-SNAPSHOT.jar
 ```
 
+The frontend is served by the same backend process at:
+
+```text
+http://localhost:8080/
+```
+
+Use the API at `http://localhost:8080/api` and the UI at `/`.
+
 ## Test And Coverage
 
 ```bash
