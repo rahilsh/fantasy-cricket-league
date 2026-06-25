@@ -21,9 +21,9 @@ The default local database is a persistent H2 file database:
 jdbc:h2:file:./data/fcl;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
 ```
 
-The schema is created from [schema.sql](src/main/resources/schema.sql). Hibernate is
-configured with `ddl-auto=validate`, so the Java mappings are checked against the SQL
-DDL instead of silently creating tables.
+The schema is created by Liquibase changelogs from
+[db/changelog](src/main/resources/db/changelog). Hibernate is configured with
+`ddl-auto=validate`, so Java mappings are checked against the migrated SQL DDL.
 
 The H2 console is available at:
 

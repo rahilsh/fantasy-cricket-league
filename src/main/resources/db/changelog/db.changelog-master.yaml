@@ -1,0 +1,8 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-init-schema
+      author: copilot
+      changes:
+        - sqlFile:
+            path: db/changelog/001-init-schema.sql
+            relativeToChangelogFile: false
