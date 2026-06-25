@@ -5,12 +5,12 @@ import static com.rsh.fcl.model.Game.GameStatus;
 import com.rsh.fcl.exception.GameAlreadyCompletedException;
 import com.rsh.fcl.exception.GameNotFoundException;
 import com.rsh.fcl.exception.GameNotStartedException;
-import com.rsh.fcl.exception.OutcomeNotSupportedException;
+import com.rsh.fcl.exception.BallEventNotSupportedException;
+import com.rsh.fcl.model.BallEvent;
 import com.rsh.fcl.model.Game;
-import com.rsh.fcl.model.Outcome;
 import com.rsh.fcl.model.UserTeam;
+import com.rsh.fcl.repository.BallEventRepository;
 import com.rsh.fcl.repository.GameRepository;
-import com.rsh.fcl.repository.OutcomeRepository;
 import com.rsh.fcl.repository.UserTeamRepository;
 import java.util.Comparator;
 import java.util.List;
@@ -27,15 +27,15 @@ public class GameService {
 
   private final GameRepository gameRepository;
   private final UserTeamRepository userTeamRepository;
-  private final OutcomeRepository outcomeRepository;
+  private final BallEventRepository ballEventRepository;
 
   public GameService(
       GameRepository gameRepository,
       UserTeamRepository userTeamRepository,
-      OutcomeRepository outcomeRepository) {
+      BallEventRepository ballEventRepository) {
     this.gameRepository = gameRepository;
     this.userTeamRepository = userTeamRepository;
-    this.outcomeRepository = outcomeRepository;
+    this.ballEventRepository = ballEventRepository;
   }
 
   @Transactional
@@ -91,15 +91,15 @@ public class GameService {
   }
 
   @Transactional
-  public Outcome play(long gameId, int batsman, int bowler, int outcomeScore) {
+  public BallEvent play(long gameId, int batsman, int bowler, int outcomeScore) {
     Game game = findGame(gameId);
     validateGameState(gameId, game);
 
     List<UserTeam> userTeamsForGame = userTeamRepository.findByGameId(gameId);
-    applyOutcome(outcomeScore, batsman, bowler, userTeamsForGame);
+    applyBallEvent(outcomeScore, batsman, bowler, userTeamsForGame);
     userTeamRepository.saveAll(userTeamsForGame);
 
-    return outcomeRepository.save(new Outcome(game, batsman, bowler, outcomeScore));
+    return ballEventRepository.save(new BallEvent(game, batsman, bowler, outcomeScore));
   }
 
   @Transactional(readOnly = true)
@@ -131,7 +131,7 @@ public class GameService {
     }
   }
 
-  private static void applyOutcome(
+  private static void applyBallEvent(
       int outcome,
       int batsman,
       int bowler,
@@ -154,7 +154,7 @@ public class GameService {
         updatePoints(userTeamsForGame, batsman, -2.0);
         updatePoints(userTeamsForGame, bowler, 4.0);
       }
-      default -> throw new OutcomeNotSupportedException(outcome);
+      default -> throw new BallEventNotSupportedException(outcome);
     }
   }
 

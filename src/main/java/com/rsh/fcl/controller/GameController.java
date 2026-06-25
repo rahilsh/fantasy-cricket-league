@@ -1,11 +1,11 @@
 package com.rsh.fcl.controller;
 
-import com.rsh.fcl.model.Outcome;
+import com.rsh.fcl.model.BallEvent;
+import com.rsh.fcl.dto.BallEventResponse;
 import com.rsh.fcl.service.GameService;
 import com.rsh.fcl.dto.GameRequest;
 import com.rsh.fcl.dto.GameResponse;
 import com.rsh.fcl.dto.LeaderboardEntry;
-import com.rsh.fcl.dto.OutcomeResponse;
 import com.rsh.fcl.dto.PlayRequest;
 import com.rsh.fcl.mapper.DtoMapper;
 import jakarta.validation.Valid;
@@ -73,9 +73,9 @@ public class GameController {
   }
 
   @PostMapping("/{id}/plays")
-  public OutcomeResponse play(@PathVariable long id, @RequestBody PlayRequest request) {
-    Outcome outcome = gameService.play(id, request.batsman(), request.bowler(), request.outcome());
-    return DtoMapper.toOutcomeResponse(outcome);
+  public BallEventResponse play(@PathVariable long id, @RequestBody PlayRequest request) {
+    BallEvent ballEvent = gameService.play(id, request.batsman(), request.bowler(), request.outcome());
+    return DtoMapper.toBallEventResponse(ballEvent);
   }
 
   @GetMapping("/{id}/leaderboard")

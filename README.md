@@ -1,7 +1,7 @@
 # Fantasy Cricket League
 
 Fantasy Cricket League is a Spring Boot REST service for creating games, user teams,
-recording ball outcomes, and viewing the top-K fantasy leaderboard.
+recording ball events, and viewing the top-K fantasy leaderboard.
 
 ## Tech Stack
 
@@ -126,18 +126,8 @@ curl -X POST http://localhost:8080/api/user-teams \
   -d '{"gameId":1,"userName":"user1","players":[1,12,2,13,3,14,7,18,8,19,10]}'
 ```
 
-### Outcomes
-
-- `POST /outcomes`
-- `GET /outcomes`
-- `GET /outcomes?gameId={gameId}`
-- `GET /outcomes/{id}`
-- `PUT /outcomes/{id}`
-- `DELETE /outcomes/{id}`
-
-Use `POST /games/{id}/plays` for game simulation because it records the outcome and
-updates fantasy points. Direct outcome CRUD stores outcome records without recalculating
-leaderboard points.
+Use `POST /games/{id}/plays` for game simulation because it records the ball event and
+updates fantasy points.
 
 ## End-To-End Game Flow
 
@@ -153,7 +143,7 @@ curl http://localhost:8080/api/games/1/leaderboard
 curl -X POST http://localhost:8080/api/games/1/end
 ```
 
-Supported outcomes:
+Supported ball event outcomes:
 
 - `1`: batsman teams +0.5
 - `2`: batsman teams +1.0, bowler teams -0.5

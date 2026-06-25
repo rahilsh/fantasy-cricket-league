@@ -14,11 +14,11 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "outcomes")
+@Table(name = "ball_events")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Outcome {
+public class BallEvent {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -37,7 +37,7 @@ public class Outcome {
   @Column(nullable = false)
   private int score;
 
-  public Outcome(Game game, int batsman, int bowler, int score) {
+  public BallEvent(Game game, int batsman, int bowler, int score) {
     this.game = game;
     this.batsman = batsman;
     this.bowler = bowler;

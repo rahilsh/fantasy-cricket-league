@@ -11,7 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.rsh.fcl.repository.GameRepository;
-import com.rsh.fcl.repository.OutcomeRepository;
+import com.rsh.fcl.repository.BallEventRepository;
 import com.rsh.fcl.repository.UserRepository;
 import com.rsh.fcl.repository.UserTeamRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,7 +39,7 @@ class GameFunctionalTest {
   private ObjectMapper objectMapper;
 
   @Autowired
-  private OutcomeRepository outcomeRepository;
+  private BallEventRepository ballEventRepository;
 
   @Autowired
   private UserTeamRepository userTeamRepository;
@@ -52,7 +52,7 @@ class GameFunctionalTest {
 
   @BeforeEach
   void cleanup() {
-    outcomeRepository.deleteAll();
+    ballEventRepository.deleteAll();
     userTeamRepository.deleteAll();
     gameRepository.deleteAll();
     userRepository.deleteAll();
@@ -107,7 +107,7 @@ class GameFunctionalTest {
   }
 
   @Test
-  void supportsCrudForGameUserUserTeamAndOutcome() throws Exception {
+  void supportsCrudForGameUserAndUserTeam() throws Exception {
     long userId = createUser("rahil");
     mockMvc.perform(get("/api/users/{id}", userId))
         .andExpect(status().isOk())
@@ -135,19 +135,6 @@ class GameFunctionalTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.points").value(9.5));
 
-    long outcomeId = createOutcome(gameId, 4, 5, 6);
-    mockMvc.perform(put("/api/outcomes/{id}", outcomeId)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"gameId\":" + gameId + ",\"batsman\":4,\"bowler\":5,\"score\":4}"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.score").value(4));
-
-    mockMvc.perform(get("/api/outcomes?gameId={gameId}", gameId))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$", hasSize(1)));
-
-    mockMvc.perform(delete("/api/outcomes/{id}", outcomeId))
-        .andExpect(status().isNoContent());
     mockMvc.perform(delete("/api/user-teams/{id}", userTeamId))
         .andExpect(status().isNoContent());
     mockMvc.perform(delete("/api/users/{id}", userId))
@@ -181,7 +168,7 @@ class GameFunctionalTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"batsman\":1,\"bowler\":2,\"outcome\":3}"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.message").value("Outcome 3 is not supported"));
+        .andExpect(jsonPath("$.message").value("Ball event outcome 3 is not supported"));
   }
 
   @Test
@@ -255,18 +242,6 @@ class GameFunctionalTest {
     String body = "{\"gameId\":" + gameId + ",\"userName\":\"" + userName
         + "\",\"players\":" + playersJson + "}";
     return idFrom(mockMvc.perform(post("/api/user-teams")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(body))
-        .andExpect(status().isCreated())
-        .andReturn()
-        .getResponse()
-        .getContentAsString());
-  }
-
-  private long createOutcome(long gameId, int batsman, int bowler, int score) throws Exception {
-    String body = "{\"gameId\":" + gameId + ",\"batsman\":" + batsman
-        + ",\"bowler\":" + bowler + ",\"score\":" + score + "}";
-    return idFrom(mockMvc.perform(post("/api/outcomes")
             .contentType(MediaType.APPLICATION_JSON)
             .content(body))
         .andExpect(status().isCreated())

@@ -18,7 +18,7 @@ public class GlobalExceptionHandler {
   }
 
   @ExceptionHandler({GameAlreadyCompletedException.class, GameNotStartedException.class,
-      OutcomeNotSupportedException.class, UserTeamExistsException.class,
+      BallEventNotSupportedException.class, UserTeamExistsException.class,
       IllegalArgumentException.class})
   public ResponseEntity<ErrorResponse> handleBadRequest(RuntimeException exception) {
     return error(HttpStatus.BAD_REQUEST, exception.getMessage());

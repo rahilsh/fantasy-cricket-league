@@ -2,11 +2,11 @@ package com.rsh.fcl.mapper;
 
 import com.rsh.fcl.dto.GameResponse;
 import com.rsh.fcl.dto.LeaderboardEntry;
-import com.rsh.fcl.dto.OutcomeResponse;
+import com.rsh.fcl.dto.BallEventResponse;
+import com.rsh.fcl.model.BallEvent;
 import com.rsh.fcl.dto.UserResponse;
 import com.rsh.fcl.dto.UserTeamResponse;
 import com.rsh.fcl.model.Game;
-import com.rsh.fcl.model.Outcome;
 import com.rsh.fcl.model.User;
 import com.rsh.fcl.model.UserTeam;
 
@@ -29,9 +29,9 @@ public final class DtoMapper {
         userTeam.getUserName(), userTeam.getPoints(), userTeam.getPlayers());
   }
 
-  public static OutcomeResponse toOutcomeResponse(Outcome outcome) {
-    return new OutcomeResponse(outcome.getId(), outcome.getGame().getId(),
-        outcome.getBatsman(), outcome.getBowler(), outcome.getScore());
+  public static BallEventResponse toBallEventResponse(BallEvent ballEvent) {
+    return new BallEventResponse(ballEvent.getId(), ballEvent.getGame().getId(),
+        ballEvent.getBatsman(), ballEvent.getBowler(), ballEvent.getScore());
   }
 
   public static LeaderboardEntry toLeaderboardEntry(UserTeam userTeam) {
