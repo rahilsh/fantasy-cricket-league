@@ -81,6 +81,15 @@ Base URL:
 http://localhost:8080/api
 ```
 
+List endpoints support pagination and sorting via `page`, `size`, and `sort`
+query parameters (for example: `?page=0&size=20&sort=id,desc`).
+
+A static OpenAPI document is available at:
+
+```text
+http://localhost:8080/openapi.yaml
+```
+
 ### Games
 
 - `POST /games`

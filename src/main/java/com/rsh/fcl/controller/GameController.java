@@ -11,6 +11,9 @@ import com.rsh.fcl.mapper.DtoMapper;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -39,10 +42,8 @@ public class GameController {
   }
 
   @GetMapping
-  public List<GameResponse> getGames() {
-    return gameService.getGames().stream()
-        .map(DtoMapper::toGameResponse)
-        .toList();
+  public Page<GameResponse> getGames(@PageableDefault(size = 20, sort = "id") Pageable pageable) {
+    return gameService.getGames(pageable).map(DtoMapper::toGameResponse);
   }
 
   @GetMapping("/{id}")

@@ -1,0 +1,103 @@
+openapi: 3.1.0
+info:
+  title: Fantasy Cricket League API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api
+paths:
+  /games:
+    get:
+      summary: List games
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: sort
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged games response
+    post:
+      summary: Create game
+      responses:
+        '201':
+          description: Created
+  /users:
+    get:
+      summary: List users
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: sort
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged users response
+    post:
+      summary: Create user
+      responses:
+        '201':
+          description: Created
+  /user-teams:
+    get:
+      summary: List user teams
+      parameters:
+        - in: query
+          name: gameId
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: sort
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged user teams response
+    post:
+      summary: Create user team
+      responses:
+        '201':
+          description: Created
+  /games/{id}/plays:
+    post:
+      summary: Record a ball event and update fantasy points
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Ball event recorded

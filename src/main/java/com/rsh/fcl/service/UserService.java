@@ -3,7 +3,8 @@ package com.rsh.fcl.service;
 import com.rsh.fcl.exception.ResourceNotFoundException;
 import com.rsh.fcl.model.User;
 import com.rsh.fcl.repository.UserRepository;
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,8 +26,8 @@ public class UserService {
   }
 
   @Transactional(readOnly = true)
-  public List<User> getUsers() {
-    return userRepository.findAll();
+  public Page<User> getUsers(Pageable pageable) {
+    return userRepository.findAll(pageable);
   }
 
   @Transactional(readOnly = true)

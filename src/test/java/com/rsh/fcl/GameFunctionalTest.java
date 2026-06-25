@@ -150,6 +150,20 @@ class GameFunctionalTest {
   }
 
   @Test
+  void supportsPaginationAndSortingForListApis() throws Exception {
+    createUser("alice");
+    createUser("charlie");
+    createUser("bob");
+
+    mockMvc.perform(get("/api/users?page=0&size=2&sort=userName,desc"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content", hasSize(2)))
+        .andExpect(jsonPath("$.content[0].userName").value("charlie"))
+        .andExpect(jsonPath("$.content[1].userName").value("bob"))
+        .andExpect(jsonPath("$.totalElements").value(3));
+  }
+
+  @Test
   void returnsHelpfulErrorsForInvalidRequests() throws Exception {
     mockMvc.perform(post("/api/games")
             .contentType(MediaType.APPLICATION_JSON)

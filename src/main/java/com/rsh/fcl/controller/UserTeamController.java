@@ -6,7 +6,9 @@ import com.rsh.fcl.dto.UserTeamResponse;
 import com.rsh.fcl.mapper.DtoMapper;
 import jakarta.validation.Valid;
 import java.net.URI;
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,15 +39,13 @@ public class UserTeamController {
   }
 
   @GetMapping
-  public List<UserTeamResponse> getUserTeams(@RequestParam(required = false) Long gameId) {
+  public Page<UserTeamResponse> getUserTeams(
+      @RequestParam(required = false) Long gameId,
+      @PageableDefault(size = 20, sort = "id") Pageable pageable) {
     if (gameId != null) {
-      return userTeamService.getUserTeamsForGame(gameId).stream()
-          .map(DtoMapper::toUserTeamResponse)
-          .toList();
+      return userTeamService.getUserTeamsForGame(gameId, pageable).map(DtoMapper::toUserTeamResponse);
     }
-    return userTeamService.getUserTeams().stream()
-        .map(DtoMapper::toUserTeamResponse)
-        .toList();
+    return userTeamService.getUserTeams(pageable).map(DtoMapper::toUserTeamResponse);
   }
 
   @GetMapping("/{id}")

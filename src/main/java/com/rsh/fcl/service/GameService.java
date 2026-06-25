@@ -12,6 +12,8 @@ import com.rsh.fcl.model.UserTeam;
 import com.rsh.fcl.repository.BallEventRepository;
 import com.rsh.fcl.repository.GameRepository;
 import com.rsh.fcl.repository.UserTeamRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.util.Comparator;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -45,8 +47,8 @@ public class GameService {
   }
 
   @Transactional(readOnly = true)
-  public List<Game> getGames() {
-    return gameRepository.findAll();
+  public Page<Game> getGames(Pageable pageable) {
+    return gameRepository.findAll(pageable);
   }
 
   @Transactional(readOnly = true)

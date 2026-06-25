@@ -11,6 +11,8 @@ import com.rsh.fcl.model.UserTeam;
 import com.rsh.fcl.repository.GameRepository;
 import com.rsh.fcl.repository.UserRepository;
 import com.rsh.fcl.repository.UserTeamRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.util.HashSet;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -44,8 +46,8 @@ public class UserTeamService {
   }
 
   @Transactional(readOnly = true)
-  public List<UserTeam> getUserTeams() {
-    return userTeamRepository.findAll();
+  public Page<UserTeam> getUserTeams(Pageable pageable) {
+    return userTeamRepository.findAll(pageable);
   }
 
   @Transactional(readOnly = true)
@@ -55,12 +57,12 @@ public class UserTeamService {
   }
 
   @Transactional(readOnly = true)
-  public List<UserTeam> getUserTeamsForGame(long gameId) {
+  public Page<UserTeam> getUserTeamsForGame(long gameId, Pageable pageable) {
     if (!gameRepository.existsById(gameId)) {
       throw new GameNotFoundException(gameId);
     }
-    List<UserTeam> userTeams = userTeamRepository.findByGameId(gameId);
-    if (userTeams.isEmpty()) {
+    Page<UserTeam> userTeams = userTeamRepository.findByGameId(gameId, pageable);
+    if (userTeams.getTotalElements() == 0) {
       throw new UserTeamNotFoundForGameException(gameId);
     }
     return userTeams;
