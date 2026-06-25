@@ -19,15 +19,11 @@ modern static UI at `/`.
 The default local database is a persistent H2 file database:
 
 ```text
-jdbc:h2:file:./data/fcl;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+jdbc:h2:file:./data/fcl;MODE=PostgreSQL;DATABASE_TO_UPPER=FALSE;DB_CLOSE_ON_EXIT=FALSE
 ```
 
-The schema is created by Liquibase changelogs from
-[db/changelog](src/main/resources/db/changelog). Hibernate is configured with
-`ddl-auto=validate`, so Java mappings are checked against the migrated SQL DDL.
-
-If you previously ran with the temporary Liquibase workaround, delete the local
-`./data/fcl.mv.db` file once so Liquibase can recreate its standard metadata.
+Hibernate is configured with `ddl-auto=update`, so the local schema is created
+and evolved automatically while keeping existing data on restart.
 
 The H2 console is available at:
 
@@ -38,7 +34,7 @@ http://localhost:8080/h2-console
 Use these default credentials:
 
 ```text
-JDBC URL: jdbc:h2:file:./data/fcl;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+JDBC URL: jdbc:h2:file:./data/fcl;MODE=PostgreSQL;DATABASE_TO_UPPER=FALSE;DB_CLOSE_ON_EXIT=FALSE
 User: sa
 Password:
 ```
