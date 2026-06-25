@@ -26,6 +26,9 @@ The schema is created by Liquibase changelogs from
 [db/changelog](src/main/resources/db/changelog). Hibernate is configured with
 `ddl-auto=validate`, so Java mappings are checked against the migrated SQL DDL.
 
+If you previously ran with the temporary Liquibase workaround, delete the local
+`./data/fcl.mv.db` file once so Liquibase can recreate its standard metadata.
+
 The H2 console is available at:
 
 ```text
