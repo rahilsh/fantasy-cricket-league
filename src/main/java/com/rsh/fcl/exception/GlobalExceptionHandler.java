@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
   @ExceptionHandler({GameNotFoundException.class, ResourceNotFoundException.class,
-      UserTeamNotFoundForGameException.class})
+      UserTeamNotFoundForGameException.class, UserNotFoundException.class})
   public ResponseEntity<ErrorResponse> handleNotFound(RuntimeException exception) {
     return error(HttpStatus.NOT_FOUND, exception.getMessage());
   }

@@ -2,11 +2,14 @@ package com.rsh.fcl.service;
 
 import com.rsh.fcl.exception.GameNotFoundException;
 import com.rsh.fcl.exception.ResourceNotFoundException;
+import com.rsh.fcl.exception.UserNotFoundException;
 import com.rsh.fcl.exception.UserTeamExistsException;
 import com.rsh.fcl.exception.UserTeamNotFoundForGameException;
 import com.rsh.fcl.model.Game;
+import com.rsh.fcl.model.User;
 import com.rsh.fcl.model.UserTeam;
 import com.rsh.fcl.repository.GameRepository;
+import com.rsh.fcl.repository.UserRepository;
 import com.rsh.fcl.repository.UserTeamRepository;
 import java.util.HashSet;
 import java.util.List;
@@ -18,20 +21,26 @@ public class UserTeamService {
 
   private final UserTeamRepository userTeamRepository;
   private final GameRepository gameRepository;
+  private final UserRepository userRepository;
 
-  public UserTeamService(UserTeamRepository userTeamRepository, GameRepository gameRepository) {
+  public UserTeamService(
+      UserTeamRepository userTeamRepository,
+      GameRepository gameRepository,
+      UserRepository userRepository) {
     this.userTeamRepository = userTeamRepository;
     this.gameRepository = gameRepository;
+    this.userRepository = userRepository;
   }
 
   @Transactional
   public UserTeam createTeamForUser(long gameId, List<Integer> players, String userName) {
     Game game = gameRepository.findById(gameId)
         .orElseThrow(() -> new GameNotFoundException(gameId));
-    if (userTeamRepository.existsByGameIdAndUserName(gameId, userName)) {
+    User user = getUserByName(userName);
+    if (userTeamRepository.existsByGameIdAndUser_UserName(gameId, userName)) {
       throw new UserTeamExistsException(userName, gameId);
     }
-    return userTeamRepository.save(new UserTeam(game, userName, players));
+    return userTeamRepository.save(new UserTeam(game, user, players));
   }
 
   @Transactional(readOnly = true)
@@ -67,14 +76,15 @@ public class UserTeamService {
     UserTeam userTeam = getUserTeam(id);
     Game game = gameRepository.findById(gameId)
         .orElseThrow(() -> new GameNotFoundException(gameId));
-    userTeamRepository.findByGameIdAndUserName(gameId, userName)
+    User user = getUserByName(userName);
+    userTeamRepository.findByGameIdAndUser_UserName(gameId, userName)
         .filter(existing -> !existing.getId().equals(id))
         .ifPresent(existing -> {
           throw new UserTeamExistsException(userName, gameId);
         });
 
     userTeam.setGame(game);
-    userTeam.setUserName(userName);
+    userTeam.setUser(user);
     userTeam.setPlayers(new HashSet<>(players));
     userTeam.setPoints(points);
     return userTeamRepository.save(userTeam);
@@ -83,5 +93,10 @@ public class UserTeamService {
   @Transactional
   public void deleteUserTeam(long id) {
     userTeamRepository.delete(getUserTeam(id));
+  }
+
+  private User getUserByName(String userName) {
+    return userRepository.findByUserName(userName)
+        .orElseThrow(() -> new UserNotFoundException(userName));
   }
 }

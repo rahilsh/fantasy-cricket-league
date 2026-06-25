@@ -25,6 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.rsh.fcl.model.Game;
+import com.rsh.fcl.model.User;
 import com.rsh.fcl.model.UserTeam;
 
 @SpringBootTest
@@ -61,6 +62,11 @@ class GameFunctionalTest {
   @Test
   void simulatesGameEndToEndThroughRestApis() throws Exception {
     long gameId = createGame("IND", "PAK", 5);
+    createUser("user1");
+    createUser("user2");
+    createUser("user3");
+    createUser("user4");
+    createUser("user5");
 
     createUserTeam(gameId, "user1", "[1,12,2,13,3,14,7,18,8,19,10]");
     createUserTeam(gameId, "user2", "[1,2,3,4,15,16,7,18,8,19,9]");
@@ -174,6 +180,15 @@ class GameFunctionalTest {
   @Test
   void coversNotFoundAndDuplicateBranches() throws Exception {
     long gameId = createGame("IND", "PAK", 3);
+
+    mockMvc.perform(post("/api/user-teams")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"gameId\":" + gameId
+                + ",\"userName\":\"ghost\",\"players\":[1,2,3]}"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.message").value("User ghost does not exist"));
+
+    createUser("user1");
     createUserTeam(gameId, "user1", "[1,2,3]");
 
     mockMvc.perform(post("/api/user-teams")
@@ -200,18 +215,26 @@ class GameFunctionalTest {
   }
 
   @Test
-  void userTeamEqualityUsesGameAndUserName() {
+  void userTeamEqualityUsesGameAndUser() {
     Game game = new Game("IND", "PAK", 3);
     game.setId(1L);
     Game anotherGame = new Game("AUS", "ENG", 3);
     anotherGame.setId(2L);
+    User user = new User("user1");
+    user.setId(1L);
+    User sameUserId = new User("user1-renamed");
+    sameUserId.setId(1L);
+    User anotherUser = new User("user1");
+    anotherUser.setId(2L);
 
-    UserTeam userTeam = new UserTeam(game, "user1", java.util.List.of(1, 2));
-    UserTeam sameUserTeam = new UserTeam(game, "user1", java.util.List.of(3, 4));
-    UserTeam differentGameTeam = new UserTeam(anotherGame, "user1", java.util.List.of(1, 2));
+    UserTeam userTeam = new UserTeam(game, user, java.util.List.of(1, 2));
+    UserTeam sameUserTeam = new UserTeam(game, sameUserId, java.util.List.of(3, 4));
+    UserTeam differentUserTeam = new UserTeam(game, anotherUser, java.util.List.of(1, 2));
+    UserTeam differentGameTeam = new UserTeam(anotherGame, user, java.util.List.of(1, 2));
 
     assertEquals(userTeam, sameUserTeam);
     assertEquals(userTeam.hashCode(), sameUserTeam.hashCode());
+    assertNotEquals(userTeam, differentUserTeam);
     assertNotEquals(userTeam, differentGameTeam);
     assertNotEquals(userTeam, null);
     assertNotEquals(userTeam, "user1");

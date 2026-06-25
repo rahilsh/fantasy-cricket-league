@@ -126,6 +126,8 @@ curl -X POST http://localhost:8080/api/user-teams \
   -d '{"gameId":1,"userName":"user1","players":[1,12,2,13,3,14,7,18,8,19,10]}'
 ```
 
+`userName` must reference an existing user from `POST /users`.
+
 Use `POST /games/{id}/plays` for game simulation because it records the ball event and
 updates fantasy points.
 

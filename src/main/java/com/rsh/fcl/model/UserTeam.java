@@ -24,7 +24,7 @@ import lombok.Setter;
 @Table(
     name = "user_teams",
     uniqueConstraints = @UniqueConstraint(name = "uk_user_teams_game_user", columnNames = {
-        "game_id", "user_name"
+        "game_id", "user_id"
     })
 )
 @Getter
@@ -40,8 +40,9 @@ public class UserTeam {
   @JoinColumn(name = "game_id", nullable = false)
   private Game game;
 
-  @Column(name = "user_name", nullable = false)
-  private String userName;
+  @ManyToOne(optional = false, fetch = FetchType.EAGER)
+  @JoinColumn(name = "user_id", nullable = false)
+  private User user;
 
   @Column(nullable = false)
   private double points;
@@ -51,10 +52,14 @@ public class UserTeam {
   @Column(name = "player_id", nullable = false)
   private Set<Integer> players = new HashSet<>();
 
-  public UserTeam(Game game, String userName, List<Integer> players) {
+  public UserTeam(Game game, User user, List<Integer> players) {
     this.game = game;
-    this.userName = userName;
+    this.user = user;
     this.players = new HashSet<>(players);
+  }
+
+  public String getUserName() {
+    return user != null ? user.getUserName() : null;
   }
 
   public boolean hasPlayer(int playerId) {
@@ -69,11 +74,12 @@ public class UserTeam {
     UserTeam userTeam = (UserTeam) o;
     return Objects.equals(game != null ? game.getId() : null,
         userTeam.game != null ? userTeam.game.getId() : null)
-        && Objects.equals(userName, userTeam.userName);
+        && Objects.equals(user != null ? user.getId() : null,
+            userTeam.user != null ? userTeam.user.getId() : null);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(game != null ? game.getId() : null, userName);
+    return Objects.hash(game != null ? game.getId() : null, user != null ? user.getId() : null);
   }
 }

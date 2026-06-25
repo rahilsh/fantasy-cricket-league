@@ -9,7 +9,7 @@ public interface UserTeamRepository extends JpaRepository<UserTeam, Long> {
 
   List<UserTeam> findByGameId(Long gameId);
 
-  Optional<UserTeam> findByGameIdAndUserName(Long gameId, String userName);
+  Optional<UserTeam> findByGameIdAndUser_UserName(Long gameId, String userName);
 
-  boolean existsByGameIdAndUserName(Long gameId, String userName);
+  boolean existsByGameIdAndUser_UserName(Long gameId, String userName);
 }
