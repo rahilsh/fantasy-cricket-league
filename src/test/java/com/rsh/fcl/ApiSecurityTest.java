@@ -31,4 +31,11 @@ class ApiSecurityTest {
             .with(httpBasic("fcl-admin", "fcl-password")))
         .andExpect(status().isOk());
   }
+
+  @Test
+  void exposesActuatorHealthForAuthenticatedRequests() throws Exception {
+    mockMvc.perform(get("/actuator/health")
+            .with(httpBasic("fcl-admin", "fcl-password")))
+        .andExpect(status().isOk());
+  }
 }

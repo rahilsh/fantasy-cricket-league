@@ -92,6 +92,13 @@ Password: fcl-password
 Override with environment variables `FCL_SECURITY_USERNAME` and
 `FCL_SECURITY_PASSWORD`.
 
+Observability endpoints (auth required):
+
+```text
+http://localhost:8080/actuator/health
+http://localhost:8080/actuator/metrics
+```
+
 List endpoints support pagination and sorting via `page`, `size`, and `sort`
 query parameters (for example: `?page=0&size=20&sort=id,desc`).
 
