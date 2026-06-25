@@ -1,0 +1,166 @@
+package com.rsh.fcl.service;
+
+import static com.rsh.fcl.model.Game.GameStatus;
+
+import com.rsh.fcl.exception.GameAlreadyCompletedException;
+import com.rsh.fcl.exception.GameNotFoundException;
+import com.rsh.fcl.exception.GameNotStartedException;
+import com.rsh.fcl.exception.OutcomeNotSupportedException;
+import com.rsh.fcl.model.Game;
+import com.rsh.fcl.model.Outcome;
+import com.rsh.fcl.model.UserTeam;
+import com.rsh.fcl.repository.GameRepository;
+import com.rsh.fcl.repository.OutcomeRepository;
+import com.rsh.fcl.repository.UserTeamRepository;
+import java.util.Comparator;
+import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class GameService {
+
+  private static final Comparator<UserTeam> BEST_TOP_USER_FIRST = Comparator
+      .comparingDouble(UserTeam::getPoints)
+      .reversed()
+      .thenComparing(UserTeam::getUserName);
+
+  private final GameRepository gameRepository;
+  private final UserTeamRepository userTeamRepository;
+  private final OutcomeRepository outcomeRepository;
+
+  public GameService(
+      GameRepository gameRepository,
+      UserTeamRepository userTeamRepository,
+      OutcomeRepository outcomeRepository) {
+    this.gameRepository = gameRepository;
+    this.userTeamRepository = userTeamRepository;
+    this.outcomeRepository = outcomeRepository;
+  }
+
+  @Transactional
+  public Game createGame(String team1, String team2, int k) {
+    validateTopK(k);
+    return gameRepository.save(new Game(team1, team2, k));
+  }
+
+  @Transactional(readOnly = true)
+  public List<Game> getGames() {
+    return gameRepository.findAll();
+  }
+
+  @Transactional(readOnly = true)
+  public Game getGame(long gameId) {
+    return findGame(gameId);
+  }
+
+  @Transactional
+  public Game updateGame(long gameId, String team1, String team2, int k) {
+    validateTopK(k);
+    Game game = findGame(gameId);
+    game.setTeam1(team1);
+    game.setTeam2(team2);
+    game.setK(k);
+    return gameRepository.save(game);
+  }
+
+  @Transactional
+  public void deleteGame(long gameId) {
+    Game game = findGame(gameId);
+    gameRepository.delete(game);
+  }
+
+  @Transactional
+  public Game startGame(long gameId) {
+    Game game = findGame(gameId);
+    if (game.getStatus().equals(GameStatus.COMPLETED)) {
+      throw new GameAlreadyCompletedException(gameId);
+    }
+    game.setStatus(GameStatus.IN_PROGRESS);
+    return gameRepository.save(game);
+  }
+
+  @Transactional
+  public Game endGame(long gameId) {
+    Game game = findGame(gameId);
+    if (game.getStatus().equals(GameStatus.CREATED)) {
+      throw new GameNotStartedException(gameId);
+    }
+    game.setStatus(GameStatus.COMPLETED);
+    return gameRepository.save(game);
+  }
+
+  @Transactional
+  public Outcome play(long gameId, int batsman, int bowler, int outcomeScore) {
+    Game game = findGame(gameId);
+    validateGameState(gameId, game);
+
+    List<UserTeam> userTeamsForGame = userTeamRepository.findByGameId(gameId);
+    applyOutcome(outcomeScore, batsman, bowler, userTeamsForGame);
+    userTeamRepository.saveAll(userTeamsForGame);
+
+    return outcomeRepository.save(new Outcome(game, batsman, bowler, outcomeScore));
+  }
+
+  @Transactional(readOnly = true)
+  public List<UserTeam> getLeaderboard(long gameId) {
+    Game game = findGame(gameId);
+    return userTeamRepository.findByGameId(gameId)
+        .stream()
+        .sorted(BEST_TOP_USER_FIRST)
+        .limit(game.getK())
+        .toList();
+  }
+
+  private Game findGame(long gameId) {
+    return gameRepository.findById(gameId)
+        .orElseThrow(() -> new GameNotFoundException(gameId));
+  }
+
+  private static void validateTopK(int k) {
+    if (k <= 0) {
+      throw new IllegalArgumentException("Top K value must be greater than zero");
+    }
+  }
+
+  private static void validateGameState(long gameId, Game game) {
+    if (game.getStatus().equals(GameStatus.CREATED)) {
+      throw new GameNotStartedException(gameId);
+    } else if (game.getStatus().equals(GameStatus.COMPLETED)) {
+      throw new GameAlreadyCompletedException(gameId);
+    }
+  }
+
+  private static void applyOutcome(
+      int outcome,
+      int batsman,
+      int bowler,
+      List<UserTeam> userTeamsForGame) {
+    switch (outcome) {
+      case 1 -> updatePoints(userTeamsForGame, batsman, 0.5);
+      case 2 -> {
+        updatePoints(userTeamsForGame, batsman, 1.0);
+        updatePoints(userTeamsForGame, bowler, -0.5);
+      }
+      case 4 -> {
+        updatePoints(userTeamsForGame, batsman, 2.0);
+        updatePoints(userTeamsForGame, bowler, -1.0);
+      }
+      case 6 -> {
+        updatePoints(userTeamsForGame, batsman, 3.0);
+        updatePoints(userTeamsForGame, bowler, -2.0);
+      }
+      case -1 -> {
+        updatePoints(userTeamsForGame, batsman, -2.0);
+        updatePoints(userTeamsForGame, bowler, 4.0);
+      }
+      default -> throw new OutcomeNotSupportedException(outcome);
+    }
+  }
+
+  private static void updatePoints(List<UserTeam> userTeams, int playerId, double delta) {
+    userTeams.stream()
+        .filter(userTeam -> userTeam.hasPlayer(playerId))
+        .forEach(userTeam -> userTeam.setPoints(userTeam.getPoints() + delta));
+  }
+}

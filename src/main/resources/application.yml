@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: fantasy-cricket-league
+  datasource:
+    url: ${FCL_DB_URL:jdbc:h2:file:./data/fcl;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE}
+    username: ${FCL_DB_USERNAME:sa}
+    password: ${FCL_DB_PASSWORD:}
+    driver-class-name: ${FCL_DB_DRIVER:org.h2.Driver}
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  sql:
+    init:
+      mode: always
+
+server:
+  port: ${PORT:8080}
