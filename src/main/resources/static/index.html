@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fantasy Cricket League</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="bg-orb bg-orb-left"></div>
+  <div class="bg-orb bg-orb-right"></div>
+
+  <div class="app-shell">
+    <header class="hero card">
+      <div>
+        <p class="eyebrow">Fantasy Cricket League</p>
+        <h1>Manage games, teams, and fantasy points in one place.</h1>
+        <p class="muted">Lightweight UI with JWT auth, superadmin controls, and every backend workflow surfaced.</p>
+      </div>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-label">Session</span>
+          <strong id="sessionRole">Signed out</strong>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Access</span>
+          <strong id="sessionName">No token</strong>
+        </div>
+      </div>
+    </header>
+
+    <section class="card auth-grid" id="authCard">
+      <div>
+        <p class="eyebrow">Get started</p>
+        <h2>Sign up or log in</h2>
+        <p class="muted">Normal users self-sign up. Superadmin uses the static credentials configured on the server.</p>
+        <div class="callout">
+          <strong>Superadmin</strong>
+          <span>Use the configured superadmin credentials to create admin users and manage the app.</span>
+        </div>
+      </div>
+
+      <div class="auth-panels">
+        <form id="signupForm" class="panel form-panel">
+          <h3>Create user account</h3>
+          <label>Username <input id="signupUserName" type="text" required></label>
+          <label>Password <input id="signupPassword" type="password" minlength="8" required></label>
+          <button class="btn primary" type="submit">Sign up</button>
+        </form>
+
+        <form id="loginForm" class="panel form-panel">
+          <h3>Log in</h3>
+          <label>Username <input id="loginUserName" type="text" required></label>
+          <label>Password <input id="loginPassword" type="password" required></label>
+          <button class="btn primary" type="submit">Log in</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="toolbar card" id="sessionBar" hidden>
+      <div>
+        <p class="eyebrow">Authenticated</p>
+        <h2 id="workspaceTitle">Workspace</h2>
+        <p class="muted" id="workspaceSubtitle"></p>
+      </div>
+      <div class="toolbar-actions">
+        <button class="btn ghost" id="refreshAllBtn" type="button">Refresh all</button>
+        <button class="btn danger" id="logoutBtn" type="button">Log out</button>
+      </div>
+    </section>
+
+    <section class="message card" id="messageBox" hidden></section>
+
+    <section id="workspace" hidden>
+      <section class="panel" id="gamesPanel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Games</p>
+            <h2>Game operations</h2>
+          </div>
+          <div class="muted small">Admin and superadmin only</div>
+        </div>
+        <form id="gameForm" class="form-grid">
+          <input id="gameId" type="hidden">
+          <label>Team 1 <input id="gameTeam1" type="text" required></label>
+          <label>Team 2 <input id="gameTeam2" type="text" required></label>
+          <label>Top K <input id="gameK" type="number" min="1" step="1" required></label>
+          <div class="form-actions">
+            <button class="btn primary" id="gameSubmitBtn" type="submit">Create game</button>
+            <button class="btn ghost" id="gameResetBtn" type="button">Reset</button>
+          </div>
+        </form>
+        <div class="list-controls">
+          <div class="inline-fields">
+            <label>Page <input id="gamesPage" type="number" min="0" value="0"></label>
+            <label>Size <input id="gamesSize" type="number" min="1" value="10"></label>
+            <label>Sort <input id="gamesSort" type="text" value="id,desc"></label>
+          </div>
+          <button class="btn ghost" id="loadGamesBtn" type="button">Load games</button>
+        </div>
+        <div id="gamesTable" class="table-wrap"></div>
+        <div class="split-grid">
+          <form id="playForm" class="panel form-panel">
+            <h3>Record play</h3>
+            <label>Game ID <input id="playGameId" type="number" min="1" required></label>
+            <label>Batsman <input id="playBatsman" type="number" min="1" required></label>
+            <label>Bowler <input id="playBowler" type="number" min="1" required></label>
+            <label>Outcome
+              <select id="playOutcome" required>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="4">4</option>
+                <option value="6">6</option>
+                <option value="-1">-1</option>
+              </select>
+            </label>
+            <button class="btn primary" type="submit">Record ball event</button>
+          </form>
+
+          <div class="panel">
+            <div class="section-head compact">
+              <div>
+                <h3>Leaderboard</h3>
+                <p class="muted small">Select a game from the table or enter an ID.</p>
+              </div>
+              <div class="inline-fields">
+                <label>Game ID <input id="leaderboardGameId" type="number" min="1"></label>
+                <button class="btn ghost" id="loadLeaderboardBtn" type="button">Load</button>
+              </div>
+            </div>
+            <div id="leaderboardBox" class="table-wrap"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="usersPanel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Users</p>
+            <h2>User operations</h2>
+          </div>
+          <div class="muted small">Admin and superadmin only</div>
+        </div>
+        <form id="userForm" class="form-grid">
+          <label>Username <input id="userName" type="text" required></label>
+          <label>Password <input id="userPassword" type="password" required></label>
+          <label>Role
+            <select id="userRole">
+              <option value="USER">User</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button class="btn primary" type="submit">Create user</button>
+            <button class="btn ghost" id="loadUsersBtn" type="button">Load users</button>
+          </div>
+        </form>
+        <div class="list-controls">
+          <div class="inline-fields">
+            <label>Page <input id="usersPage" type="number" min="0" value="0"></label>
+            <label>Size <input id="usersSize" type="number" min="1" value="10"></label>
+            <label>Sort <input id="usersSort" type="text" value="id,desc"></label>
+          </div>
+        </div>
+        <div id="usersTable" class="table-wrap"></div>
+        <form id="userEditForm" class="panel form-panel">
+          <h3>Edit user name</h3>
+          <label>User ID <input id="editUserId" type="number" min="1" required></label>
+          <label>Username <input id="editUserName" type="text" required></label>
+          <div class="form-actions">
+            <button class="btn primary" type="submit">Update user</button>
+            <button class="btn danger" id="deleteUserBtn" type="button">Delete user</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel" id="teamsPanel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Teams</p>
+            <h2>User team operations</h2>
+          </div>
+          <div class="muted small">All authenticated users can manage their own teams</div>
+        </div>
+        <form id="teamForm" class="form-grid">
+          <input id="teamId" type="hidden">
+          <label>Game ID <input id="teamGameId" type="number" min="1" required></label>
+          <label>Username <input id="teamUserName" type="text" required></label>
+          <label>Players (comma separated) <input id="teamPlayers" type="text" required placeholder="1,2,3,4,5,6,7,8,9,10,11"></label>
+          <label>Points <input id="teamPoints" type="number" step="0.1" value="0"></label>
+          <div class="form-actions">
+            <button class="btn primary" id="teamSubmitBtn" type="submit">Create team</button>
+            <button class="btn ghost" id="teamResetBtn" type="button">Reset</button>
+          </div>
+        </form>
+        <div class="list-controls">
+          <div class="inline-fields">
+            <label>Game filter <input id="teamsGameFilter" type="number" min="1" placeholder="Optional"></label>
+            <label>Page <input id="teamsPage" type="number" min="0" value="0"></label>
+            <label>Size <input id="teamsSize" type="number" min="1" value="10"></label>
+            <label>Sort <input id="teamsSort" type="text" value="id,desc"></label>
+          </div>
+          <button class="btn ghost" id="loadTeamsBtn" type="button">Load teams</button>
+        </div>
+        <div id="teamsTable" class="table-wrap"></div>
+        <form id="teamEditForm" class="panel form-panel">
+          <h3>Edit team</h3>
+          <label>Team ID <input id="editTeamId" type="number" min="1" required></label>
+          <label>Game ID <input id="editTeamGameId" type="number" min="1" required></label>
+          <label>Username <input id="editTeamUserName" type="text" required></label>
+          <label>Players (comma separated) <input id="editTeamPlayers" type="text" required></label>
+          <label>Points <input id="editTeamPoints" type="number" step="0.1" value="0"></label>
+          <div class="form-actions">
+            <button class="btn primary" type="submit">Update team</button>
+            <button class="btn danger" id="deleteTeamBtn" type="button">Delete team</button>
+          </div>
+        </form>
+      </section>
+    </section>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
