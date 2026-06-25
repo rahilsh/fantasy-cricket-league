@@ -81,6 +81,17 @@ Base URL:
 http://localhost:8080/api
 ```
 
+All API endpoints require HTTP Basic authentication.
+Default credentials:
+
+```text
+Username: fcl-admin
+Password: fcl-password
+```
+
+Override with environment variables `FCL_SECURITY_USERNAME` and
+`FCL_SECURITY_PASSWORD`.
+
 List endpoints support pagination and sorting via `page`, `size`, and `sort`
 query parameters (for example: `?page=0&size=20&sort=id,desc`).
 

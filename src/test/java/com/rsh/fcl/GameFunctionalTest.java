@@ -29,7 +29,7 @@ import com.rsh.fcl.model.User;
 import com.rsh.fcl.model.UserTeam;
 
 @SpringBootTest
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("test")
 class GameFunctionalTest {
 
