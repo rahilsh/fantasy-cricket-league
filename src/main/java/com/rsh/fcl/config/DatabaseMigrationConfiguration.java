@@ -18,8 +18,8 @@ public class DatabaseMigrationConfiguration {
     SpringLiquibase liquibase = new SpringLiquibase();
     liquibase.setDataSource(dataSource);
     liquibase.setChangeLog("classpath:db/changelog/db.changelog-master.yaml");
-    liquibase.setDatabaseChangeLogTable("databasechangelog");
-    liquibase.setDatabaseChangeLogLockTable("databasechangeloglock");
+    liquibase.setDatabaseChangeLogTable("liquibase_databasechangelog");
+    liquibase.setDatabaseChangeLogLockTable("liquibase_databasechangeloglock");
     return liquibase;
   }
 
