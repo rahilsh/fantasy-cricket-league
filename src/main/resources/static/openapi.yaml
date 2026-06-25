@@ -5,6 +5,18 @@ info:
 servers:
   - url: http://localhost:8080/api
 paths:
+  /auth/signup:
+    post:
+      summary: Sign up a normal user
+      responses:
+        '201':
+          description: Created
+  /auth/login:
+    post:
+      summary: Log in and get a JWT
+      responses:
+        '200':
+          description: Auth token
   /games:
     get:
       summary: List games
@@ -53,7 +65,7 @@ paths:
         '200':
           description: Paged users response
     post:
-      summary: Create user
+      summary: Create user or admin
       responses:
         '201':
           description: Created

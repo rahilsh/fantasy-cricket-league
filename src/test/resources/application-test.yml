@@ -13,3 +13,8 @@ spring:
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.yaml
+
+fcl:
+  security:
+    jwt:
+      secret: test-secret-key-at-least-32-bytes-long-12345

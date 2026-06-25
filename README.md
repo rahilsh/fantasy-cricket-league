@@ -1,7 +1,8 @@
 # Fantasy Cricket League
 
-Fantasy Cricket League is a Spring Boot REST service for creating games, user teams,
-recording ball events, and viewing the top-K fantasy leaderboard.
+Fantasy Cricket League is a Spring Boot app for creating games, user teams,
+recording ball events, and viewing the top-K fantasy leaderboard. It includes a
+modern static UI at `/`.
 
 ## Tech Stack
 
@@ -81,16 +82,29 @@ Base URL:
 http://localhost:8080/api
 ```
 
-All API endpoints require HTTP Basic authentication.
-Default credentials:
+Authentication is JWT Bearer token based.
+
+Auth endpoints:
+
+```text
+POST /api/auth/signup
+POST /api/auth/login
+```
+
+Superadmin credentials for login:
 
 ```text
 Username: fcl-admin
-Password: fcl-password
+Password: fcl-admin-password
 ```
 
-Override with environment variables `FCL_SECURITY_USERNAME` and
-`FCL_SECURITY_PASSWORD`.
+Override with environment variables `FCL_SECURITY_SUPERADMIN_USERNAME` and
+`FCL_SECURITY_SUPERADMIN_PASSWORD`.
+
+JWT signing secret is configured by `FCL_SECURITY_JWT_SECRET`.
+
+Only the superadmin can create admin users through `POST /api/users` with
+`role=ADMIN`. Normal users sign up through `POST /api/auth/signup`.
 
 Observability endpoints (auth required):
 
@@ -124,6 +138,7 @@ Create a game:
 
 ```bash
 curl -X POST http://localhost:8080/api/games \
+  -H "Authorization: Bearer <admin_token>" \
   -H 'Content-Type: application/json' \
   -d '{"team1":"IND","team2":"PAK","k":5}'
 ```
@@ -135,6 +150,9 @@ curl -X POST http://localhost:8080/api/games \
 - `GET /users/{id}`
 - `PUT /users/{id}`
 - `DELETE /users/{id}`
+
+The create user endpoint accepts `userName`, `password`, and `role`.
+`role=ADMIN` is reserved for the superadmin.
 
 ### User Teams
 
@@ -149,11 +167,15 @@ Create a user team:
 
 ```bash
 curl -X POST http://localhost:8080/api/user-teams \
+  -H "Authorization: Bearer <user_token>" \
   -H 'Content-Type: application/json' \
   -d '{"gameId":1,"userName":"user1","players":[1,12,2,13,3,14,7,18,8,19,10]}'
 ```
 
 `userName` must reference an existing user from `POST /users`.
+Users can only access and modify their own teams.
+User team players are limited to max 11.
+User teams cannot be modified once the game has started.
 
 Use `POST /games/{id}/plays` for game simulation because it records the ball event and
 updates fantasy points.

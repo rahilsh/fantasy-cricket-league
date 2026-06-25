@@ -164,6 +164,23 @@ class GameFunctionalTest {
   }
 
   @Test
+  void blocksUserTeamModificationAfterGameStart() throws Exception {
+    long gameId = createGame("IND", "AUS", 3);
+    createUser("captain");
+    long userTeamId = createUserTeam(gameId, "captain", "[1,2,3]");
+
+    mockMvc.perform(post("/api/games/{id}/start", gameId))
+        .andExpect(status().isOk());
+
+    mockMvc.perform(put("/api/user-teams/{id}", userTeamId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"gameId\":" + gameId
+                + ",\"userName\":\"captain\",\"players\":[4,5,6],\"points\":0.0}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("User teams cannot be modified after game has started"));
+  }
+
+  @Test
   void returnsHelpfulErrorsForInvalidRequests() throws Exception {
     mockMvc.perform(post("/api/games")
             .contentType(MediaType.APPLICATION_JSON)
@@ -203,6 +220,13 @@ class GameFunctionalTest {
                 + ",\"userName\":\"fielder\",\"players\":[-5,2,3]}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.message").value("players[0] must be greater than 0"));
+
+    mockMvc.perform(post("/api/user-teams")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"gameId\":" + gameId
+                + ",\"userName\":\"fielder\",\"players\":[1,2,3,4,5,6,7,8,9,10,11,12]}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("players size must be between 0 and 11"));
 
     mockMvc.perform(post("/api/games/{id}/plays", gameId)
             .contentType(MediaType.APPLICATION_JSON)

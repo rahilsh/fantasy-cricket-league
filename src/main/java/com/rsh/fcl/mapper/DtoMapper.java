@@ -21,7 +21,7 @@ public final class DtoMapper {
   }
 
   public static UserResponse toUserResponse(User user) {
-    return new UserResponse(user.getId(), user.getUserName());
+    return new UserResponse(user.getId(), user.getUserName(), user.getRole().name());
   }
 
   public static UserTeamResponse toUserTeamResponse(UserTeam userTeam) {

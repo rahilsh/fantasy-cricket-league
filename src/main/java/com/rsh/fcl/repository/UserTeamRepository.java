@@ -15,6 +15,8 @@ public interface UserTeamRepository extends JpaRepository<UserTeam, Long> {
 
   List<UserTeam> findByGameId(Long gameId);
   Page<UserTeam> findByGameId(Long gameId, Pageable pageable);
+  Page<UserTeam> findByUser_UserName(String userName, Pageable pageable);
+  Page<UserTeam> findByGameIdAndUser_UserName(Long gameId, String userName, Pageable pageable);
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select userTeam from UserTeam userTeam where userTeam.game.id = :gameId")
