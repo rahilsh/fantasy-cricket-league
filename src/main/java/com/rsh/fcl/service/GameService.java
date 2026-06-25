@@ -95,7 +95,7 @@ public class GameService {
     Game game = findGame(gameId);
     validateGameState(gameId, game);
 
-    List<UserTeam> userTeamsForGame = userTeamRepository.findByGameId(gameId);
+    List<UserTeam> userTeamsForGame = userTeamRepository.findByGameIdForUpdate(gameId);
     applyBallEvent(outcomeScore, batsman, bowler, userTeamsForGame);
     userTeamRepository.saveAll(userTeamsForGame);
 
