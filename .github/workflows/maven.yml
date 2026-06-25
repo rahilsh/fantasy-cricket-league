@@ -31,7 +31,7 @@ jobs:
           cache: maven
 
       - name: Build, test, and verify coverage
-        run: mvn -B verify
+        run: mvn --batch-mode --no-transfer-progress clean verify
 
       - name: Upload test and coverage reports
         if: always()
