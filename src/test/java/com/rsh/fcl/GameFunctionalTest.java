@@ -172,6 +172,26 @@ class GameFunctionalTest {
 
     mockMvc.perform(post("/api/games/{id}/plays", gameId)
             .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"batsman\":-1,\"bowler\":2,\"outcome\":6}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("batsman must be greater than 0"));
+
+    mockMvc.perform(post("/api/games/{id}/plays", gameId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"batsman\":1,\"bowler\":2}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("outcome must not be null"));
+
+    createUser("fielder");
+    mockMvc.perform(post("/api/user-teams")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"gameId\":" + gameId
+                + ",\"userName\":\"fielder\",\"players\":[-5,2,3]}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("players[0] must be greater than 0"));
+
+    mockMvc.perform(post("/api/games/{id}/plays", gameId)
+            .contentType(MediaType.APPLICATION_JSON)
             .content("{\"batsman\":1,\"bowler\":2,\"outcome\":3}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.message").value("Ball event outcome 3 is not supported"));

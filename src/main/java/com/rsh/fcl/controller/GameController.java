@@ -73,7 +73,7 @@ public class GameController {
   }
 
   @PostMapping("/{id}/plays")
-  public BallEventResponse play(@PathVariable long id, @RequestBody PlayRequest request) {
+  public BallEventResponse play(@PathVariable long id, @Valid @RequestBody PlayRequest request) {
     BallEvent ballEvent = gameService.play(id, request.batsman(), request.bowler(), request.outcome());
     return DtoMapper.toBallEventResponse(ballEvent);
   }
