@@ -90,9 +90,10 @@ function run(promise) {
 }
 
 function tableMarkup(columns, rows) {
-  if (!rows.length) return '<div class="muted empty">No records yet.</div>';
+  const body = Array.isArray(rows) ? rows.join('') : rows;
+  if (!body) return '<div class="muted empty">No records yet.</div>';
   const head = `<thead><tr>${columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>`;
-  return `<table>${head}<tbody>${rows.join('')}</tbody></table>`;
+  return `<table>${head}<tbody>${body}</tbody></table>`;
 }
 
 function statusBadge(status) {
