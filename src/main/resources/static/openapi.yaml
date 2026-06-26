@@ -65,7 +65,7 @@ paths:
         '200':
           description: Paged users response
     post:
-      summary: Create user or admin
+      summary: Create user (superadmin only)
       responses:
         '201':
           description: Created

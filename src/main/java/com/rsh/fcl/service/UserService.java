@@ -41,9 +41,6 @@ public class UserService {
     }
     String effectivePassword = rawPassword;
     if (effectivePassword == null || effectivePassword.isBlank()) {
-      if (role == UserRole.ADMIN) {
-        throw new IllegalArgumentException("Password is required for admin users");
-      }
       effectivePassword = UUID.randomUUID().toString();
     }
     return userRepository.save(new User(userName, passwordEncoder.encode(effectivePassword), role));

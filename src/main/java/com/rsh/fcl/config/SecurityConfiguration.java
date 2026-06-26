@@ -6,6 +6,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -40,9 +41,10 @@ public class SecurityConfiguration {
             .requestMatchers("/h2-console/**").permitAll()
             .requestMatchers("/api/auth/**").permitAll()
             .requestMatchers("/openapi.yaml").permitAll()
-            .requestMatchers("/actuator/**").hasAnyRole("ADMIN", "SUPERADMIN")
-            .requestMatchers("/api/games/**").hasAnyRole("ADMIN", "SUPERADMIN")
-            .requestMatchers("/api/users/**").hasAnyRole("ADMIN", "SUPERADMIN")
+            .requestMatchers("/actuator/**").hasRole("SUPERADMIN")
+            .requestMatchers(HttpMethod.GET, "/api/games/**").authenticated()
+            .requestMatchers("/api/games/**").hasRole("SUPERADMIN")
+            .requestMatchers("/api/users/**").hasRole("SUPERADMIN")
             .requestMatchers("/api/user-teams/**").authenticated()
             .anyRequest().authenticated())
         .oauth2ResourceServer(oauth2 -> oauth2

@@ -58,36 +58,39 @@ class ApiSecurityTest {
   }
 
   @Test
-  void enforcesAdminOnlyGameApis() throws Exception {
+  void allowsUsersToReadButOnlySuperadminToMutateGames() throws Exception {
     String userToken = signupAndGetToken("user1", "password123");
     String superadminToken = loginAndGetToken("fcl-admin", "fcl-admin-password");
 
     mockMvc.perform(get("/api/games")
             .header("Authorization", "Bearer " + userToken))
+        .andExpect(status().isOk());
+
+    mockMvc.perform(post("/api/games")
+            .header("Authorization", "Bearer " + userToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"team1\":\"IND\",\"team2\":\"PAK\",\"k\":3}"))
         .andExpect(status().isForbidden());
 
-    mockMvc.perform(get("/api/games")
-            .header("Authorization", "Bearer " + superadminToken))
-        .andExpect(status().isOk());
+    mockMvc.perform(post("/api/games")
+            .header("Authorization", "Bearer " + superadminToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"team1\":\"IND\",\"team2\":\"PAK\",\"k\":3}"))
+        .andExpect(status().isCreated());
   }
 
   @Test
-  void allowsOnlySuperadminToCreateAdminUsers() throws Exception {
-    String superadminToken = loginAndGetToken("fcl-admin", "fcl-admin-password");
+  void restrictsUserManagementToSuperadmin() throws Exception {
     String userToken = signupAndGetToken("user1", "password123");
+    String superadminToken = loginAndGetToken("fcl-admin", "fcl-admin-password");
 
-    mockMvc.perform(post("/api/users")
-            .header("Authorization", "Bearer " + superadminToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"userName\":\"manager1\",\"password\":\"password123\",\"role\":\"ADMIN\"}"))
-        .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.role").value("ADMIN"));
-
-    mockMvc.perform(post("/api/users")
-            .header("Authorization", "Bearer " + userToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"userName\":\"manager2\",\"password\":\"password123\",\"role\":\"ADMIN\"}"))
+    mockMvc.perform(get("/api/users")
+            .header("Authorization", "Bearer " + userToken))
         .andExpect(status().isForbidden());
+
+    mockMvc.perform(get("/api/users")
+            .header("Authorization", "Bearer " + superadminToken))
+        .andExpect(status().isOk());
   }
 
   @Test

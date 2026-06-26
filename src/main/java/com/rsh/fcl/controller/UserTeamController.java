@@ -35,7 +35,7 @@ public class UserTeamController {
   public ResponseEntity<UserTeamResponse> createUserTeam(
       @Valid @RequestBody UserTeamRequest request,
       Authentication authentication) {
-    String effectiveUserName = isAdmin(authentication) ? request.userName() : authentication.getName();
+    String effectiveUserName = isSuperadmin(authentication) ? request.userName() : authentication.getName();
     UserTeamResponse response = DtoMapper.toUserTeamResponse(
         userTeamService.createTeamForUser(request.gameId(), request.players(), effectiveUserName));
     return ResponseEntity.created(URI.create("/api/user-teams/" + response.id())).body(response);
@@ -46,7 +46,7 @@ public class UserTeamController {
       @RequestParam(required = false) Long gameId,
       @PageableDefault(size = 20, sort = "id") Pageable pageable,
       Authentication authentication) {
-    if (!isAdmin(authentication)) {
+    if (!isSuperadmin(authentication)) {
       if (gameId != null) {
         return userTeamService.getUserTeamsForGameForUser(gameId, authentication.getName(), pageable)
             .map(DtoMapper::toUserTeamResponse);
@@ -62,7 +62,7 @@ public class UserTeamController {
 
   @GetMapping("/{id}")
   public UserTeamResponse getUserTeam(@PathVariable long id, Authentication authentication) {
-    if (isAdmin(authentication)) {
+    if (isSuperadmin(authentication)) {
       return DtoMapper.toUserTeamResponse(userTeamService.getUserTeam(id));
     }
     return DtoMapper.toUserTeamResponse(userTeamService.getUserTeamForUser(id, authentication.getName()));
@@ -73,8 +73,8 @@ public class UserTeamController {
       @PathVariable long id,
       @Valid @RequestBody UserTeamRequest request,
       Authentication authentication) {
-    String effectiveUserName = isAdmin(authentication) ? request.userName() : authentication.getName();
-    double effectivePoints = isAdmin(authentication)
+    String effectiveUserName = isSuperadmin(authentication) ? request.userName() : authentication.getName();
+    double effectivePoints = isSuperadmin(authentication)
         ? request.pointsOrDefault()
         : userTeamService.getUserTeamForUser(id, effectiveUserName).getPoints();
     return DtoMapper.toUserTeamResponse(userTeamService.updateUserTeam(id, request.gameId(),
@@ -83,18 +83,18 @@ public class UserTeamController {
 
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> deleteUserTeam(@PathVariable long id, Authentication authentication) {
-    if (!isAdmin(authentication)) {
+    if (!isSuperadmin(authentication)) {
       userTeamService.getUserTeamForUser(id, authentication.getName());
     }
     userTeamService.deleteUserTeam(id);
     return ResponseEntity.noContent().build();
   }
 
-  private static boolean isAdmin(Authentication authentication) {
+  private static boolean isSuperadmin(Authentication authentication) {
     if (authentication == null) {
       return true;
     }
     return authentication.getAuthorities().stream()
-        .anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals("ROLE_ADMIN"));
+        .anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals("ROLE_SUPERADMIN"));
   }
 }
