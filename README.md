@@ -1,8 +1,7 @@
 # Fantasy Cricket League
 
-Fantasy Cricket League is a Spring Boot app for creating games, user teams,
-recording ball events, and viewing the top-K fantasy leaderboard. It includes a
-modern static UI at `/`.
+Fantasy Cricket League is a Spring Boot REST API for creating games, user teams,
+recording ball events, and viewing the top-K fantasy leaderboard.
 
 ## Tech Stack
 
@@ -68,25 +67,24 @@ mvn verify
 java -jar target/fcl-1.0-SNAPSHOT.jar
 ```
 
-The frontend is served by the same backend process at:
+The REST API is available at `http://localhost:8080/api`. A static OpenAPI
+document is served at `http://localhost:8080/openapi.yaml`.
 
-```text
-http://localhost:8080/
+## Simulate A Game
+
+`scripts/simulate_game.sh` drives a full game through the REST API: it logs in as
+superadmin, creates a game, signs up users with teams, starts the game, records
+30 random ball events, ends the game, and prints the winner with their players.
+
+```bash
+# Start the app first (mvn spring-boot:run), then:
+./scripts/simulate_game.sh
 ```
 
-Use the API at `http://localhost:8080/api` and the UI at `/`.
-
-## Web UI
-
-The static UI at `/` adapts to the signed-in role:
-
-- **Sign in:** a segmented switch offers a **User** area (log in or sign up) and
-  a separate **Superadmin** log in.
-- **User view** has tabs **Games** (browse and select a game), **My Team**
-  (create or edit your XI of up to 11 players for the selected game, locked once
-  the game starts), and **Leaderboard** (standings for the selected game).
-- **Superadmin view** has tabs **Games** (start/end a game, record ball events,
-  view the leaderboard) and **Create Game**.
+Configure via environment variables: `BASE_URL` (default
+`http://localhost:8080`), `NUM_USERS` (default `4`), `NUM_EVENTS` (default `30`),
+and the superadmin credentials `FCL_SECURITY_SUPERADMIN_USERNAME` /
+`FCL_SECURITY_SUPERADMIN_PASSWORD`. Requires `curl` and `python3`.
 
 ## Test And Coverage
 
