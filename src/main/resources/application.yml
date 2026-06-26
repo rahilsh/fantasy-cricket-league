@@ -2,7 +2,7 @@ spring:
   application:
     name: fantasy-cricket-league
   datasource:
-    url: ${FCL_DB_URL:jdbc:h2:file:./data/fcl;MODE=PostgreSQL;DATABASE_TO_UPPER=FALSE;DB_CLOSE_ON_EXIT=FALSE}
+    url: ${FCL_DB_URL:jdbc:h2:file:./data/fcl;MODE=PostgreSQL;AUTO_SERVER=TRUE}
     username: ${FCL_DB_USERNAME:sa}
     password: ${FCL_DB_PASSWORD:}
     driver-class-name: ${FCL_DB_DRIVER:org.h2.Driver}

@@ -19,11 +19,14 @@ modern static UI at `/`.
 The default local database is a persistent H2 file database:
 
 ```text
-jdbc:h2:file:./data/fcl;MODE=PostgreSQL;DATABASE_TO_UPPER=FALSE;DB_CLOSE_ON_EXIT=FALSE
+jdbc:h2:file:./data/fcl;MODE=PostgreSQL;AUTO_SERVER=TRUE
 ```
 
 Hibernate is configured with `ddl-auto=update`, so the local schema is created
 and evolved automatically while keeping existing data on restart.
+`AUTO_SERVER=TRUE` lets the file database accept additional connections (for
+example the H2 console) and makes restarts resilient if a previous instance is
+still shutting down.
 
 The H2 console is available at:
 
@@ -34,7 +37,7 @@ http://localhost:8080/h2-console
 Use these default credentials:
 
 ```text
-JDBC URL: jdbc:h2:file:./data/fcl;MODE=PostgreSQL;DATABASE_TO_UPPER=FALSE;DB_CLOSE_ON_EXIT=FALSE
+JDBC URL: jdbc:h2:file:./data/fcl;MODE=PostgreSQL;AUTO_SERVER=TRUE
 User: sa
 Password:
 ```

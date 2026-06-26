@@ -1,18 +1,13 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:fcl_test_${random.uuid};MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    url: jdbc:h2:mem:fcl_test_${random.uuid};MODE=PostgreSQL
     username: sa
     password:
     driver-class-name: org.h2.Driver
   jpa:
     hibernate:
-      ddl-auto: validate
-  sql:
-    init:
-      mode: never
-  liquibase:
-    enabled: true
-    change-log: classpath:db/changelog/db.changelog-master.yaml
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.H2Dialect
 
 fcl:
   security:
