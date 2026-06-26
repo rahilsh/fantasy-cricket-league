@@ -76,6 +76,18 @@ http://localhost:8080/
 
 Use the API at `http://localhost:8080/api` and the UI at `/`.
 
+## Web UI
+
+The static UI at `/` adapts to the signed-in role:
+
+- **Sign in:** a segmented switch offers a **User** area (log in or sign up) and
+  a separate **Superadmin** log in.
+- **User view** has tabs **Games** (browse and select a game), **My Team**
+  (create or edit your XI of up to 11 players for the selected game, locked once
+  the game starts), and **Leaderboard** (standings for the selected game).
+- **Superadmin view** has tabs **Games** (start/end a game, record ball events,
+  view the leaderboard) and **Create Game**.
+
 ## Test And Coverage
 
 ```bash
@@ -113,8 +125,10 @@ Override with environment variables `FCL_SECURITY_SUPERADMIN_USERNAME` and
 
 JWT signing secret is configured by `FCL_SECURITY_JWT_SECRET`.
 
-Only the superadmin can create admin users through `POST /api/users` with
-`role=ADMIN`. Normal users sign up through `POST /api/auth/signup`.
+There are two roles: `USER` and `SUPERADMIN`. Normal users self-sign up through
+`POST /api/auth/signup`. The superadmin logs in with the static credentials
+above. Superadmins create/start/end games and record ball events; users manage
+their own team and read games and leaderboards.
 
 Observability endpoints (auth required):
 
@@ -153,6 +167,11 @@ curl -X POST http://localhost:8080/api/games \
   -d '{"team1":"IND","team2":"PAK","k":5}'
 ```
 
+The `Authorization` header above must carry a superadmin token; game writes
+(`POST`/`PUT`/`DELETE`, `start`, `end`, `plays`) are superadmin-only, while any
+authenticated user can read games and leaderboards (`GET /games`,
+`GET /games/{id}/leaderboard`).
+
 ### Users
 
 - `POST /users`
@@ -161,8 +180,8 @@ curl -X POST http://localhost:8080/api/games \
 - `PUT /users/{id}`
 - `DELETE /users/{id}`
 
-The create user endpoint accepts `userName`, `password`, and `role`.
-`role=ADMIN` is reserved for the superadmin.
+User-management endpoints are superadmin-only. The create user endpoint accepts
+`userName` and `password`; all created users have the `USER` role.
 
 ### User Teams
 
