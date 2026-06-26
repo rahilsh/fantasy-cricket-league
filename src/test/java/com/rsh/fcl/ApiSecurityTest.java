@@ -1,7 +1,9 @@
 package com.rsh.fcl;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -134,6 +136,122 @@ class ApiSecurityTest {
             .header("Authorization", "Bearer " + user1Token))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.message").value("User cannot access another user's team"));
+  }
+
+  @Test
+  void userCanLogInAfterSignup() throws Exception {
+    signupAndGetToken("alice", "password123");
+
+    mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"userName\":\"alice\",\"password\":\"password123\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.role").value("USER"))
+        .andExpect(jsonPath("$.tokenType").value("Bearer"))
+        .andExpect(jsonPath("$.accessToken").isNotEmpty());
+  }
+
+  @Test
+  void rejectsInvalidCredentials() throws Exception {
+    signupAndGetToken("alice", "password123");
+
+    mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"userName\":\"alice\",\"password\":\"wrong-password\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("Invalid credentials"));
+
+    mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"userName\":\"ghost\",\"password\":\"password123\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("Invalid credentials"));
+  }
+
+  @Test
+  void allowsUserToReadSingleGame() throws Exception {
+    String superadminToken = loginAndGetToken("fcl-admin", "fcl-admin-password");
+    String userToken = signupAndGetToken("user1", "password123");
+    long gameId = createGame(superadminToken, "IND", "PAK", 3);
+
+    mockMvc.perform(get("/api/games/" + gameId)
+            .header("Authorization", "Bearer " + userToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.team1").value("IND"))
+        .andExpect(jsonPath("$.team2").value("PAK"));
+  }
+
+  @Test
+  void userManagesOwnTeamLifecycleThroughFilters() throws Exception {
+    String superadminToken = loginAndGetToken("fcl-admin", "fcl-admin-password");
+    String userToken = signupAndGetToken("user1", "password123");
+    long gameId = createGame(superadminToken, "IND", "PAK", 3);
+
+    long teamId = createTeam(userToken, gameId, "[1,2,3]");
+
+    mockMvc.perform(get("/api/user-teams")
+            .header("Authorization", "Bearer " + userToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content", org.hamcrest.Matchers.hasSize(1)))
+        .andExpect(jsonPath("$.content[0].userName").value("user1"));
+
+    mockMvc.perform(get("/api/user-teams?gameId=" + gameId)
+            .header("Authorization", "Bearer " + userToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content[0].players", org.hamcrest.Matchers.hasSize(3)));
+
+    mockMvc.perform(put("/api/user-teams/" + teamId)
+            .header("Authorization", "Bearer " + userToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"gameId\":" + gameId + ",\"userName\":\"ignored\",\"players\":[4,5,6,7]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.players", org.hamcrest.Matchers.hasSize(4)));
+
+    mockMvc.perform(delete("/api/user-teams/" + teamId)
+            .header("Authorization", "Bearer " + userToken))
+        .andExpect(status().isNoContent());
+  }
+
+  @Test
+  void superadminCanListAllUserTeamsThroughFilters() throws Exception {
+    String superadminToken = loginAndGetToken("fcl-admin", "fcl-admin-password");
+    String user1Token = signupAndGetToken("user1", "password123");
+    String user2Token = signupAndGetToken("user2", "password123");
+    long gameId = createGame(superadminToken, "IND", "PAK", 3);
+    createTeam(user1Token, gameId, "[1,2,3]");
+    createTeam(user2Token, gameId, "[4,5,6]");
+
+    mockMvc.perform(get("/api/user-teams")
+            .header("Authorization", "Bearer " + superadminToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalElements").value(2));
+
+    mockMvc.perform(get("/api/user-teams?gameId=" + gameId)
+            .header("Authorization", "Bearer " + superadminToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content", org.hamcrest.Matchers.hasSize(2)));
+  }
+
+  private long createGame(String token, String team1, String team2, int k) throws Exception {
+    return idFrom(mockMvc.perform(post("/api/games")
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"team1\":\"" + team1 + "\",\"team2\":\"" + team2 + "\",\"k\":" + k + "}"))
+        .andExpect(status().isCreated())
+        .andReturn()
+        .getResponse()
+        .getContentAsString());
+  }
+
+  private long createTeam(String token, long gameId, String playersJson) throws Exception {
+    return idFrom(mockMvc.perform(post("/api/user-teams")
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"gameId\":" + gameId + ",\"userName\":\"ignored\",\"players\":" + playersJson + "}"))
+        .andExpect(status().isCreated())
+        .andReturn()
+        .getResponse()
+        .getContentAsString());
   }
 
   private String signupAndGetToken(String userName, String password) throws Exception {
