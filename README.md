@@ -73,8 +73,10 @@ document is served at `http://localhost:8080/openapi.yaml`.
 ## Simulate A Game
 
 `scripts/simulate_game.sh` drives a full game through the REST API: it logs in as
-superadmin, creates a game, signs up users with teams, starts the game, records
-30 random ball events, ends the game, and prints the winner with their players.
+superadmin, creates a game with a fixed number of overs, signs up users with
+teams, starts the game, and records one random ball event per delivery. The game
+**auto-completes once all overs are bowled** (6 balls per over), after which the
+script prints the winner with their players.
 
 ```bash
 # Start the app first (mvn spring-boot:run), then:
@@ -82,8 +84,8 @@ superadmin, creates a game, signs up users with teams, starts the game, records
 ```
 
 Configure via environment variables: `BASE_URL` (default
-`http://localhost:8080`), `NUM_USERS` (default `4`), `NUM_EVENTS` (default `30`),
-and the superadmin credentials `FCL_SECURITY_SUPERADMIN_USERNAME` /
+`http://localhost:8080`), `NUM_USERS` (default `4`), `OVERS` (default `5`, i.e.
+30 balls), and the superadmin credentials `FCL_SECURITY_SUPERADMIN_USERNAME` /
 `FCL_SECURITY_SUPERADMIN_PASSWORD`. Requires `curl` and `python3`.
 
 ## Test And Coverage
@@ -162,8 +164,12 @@ Create a game:
 curl -X POST http://localhost:8080/api/games \
   -H "Authorization: Bearer <admin_token>" \
   -H 'Content-Type: application/json' \
-  -d '{"team1":"IND","team2":"PAK","k":5}'
+  -d '{"team1":"IND","team2":"PAK","k":5,"overs":20}'
 ```
+
+`overs` is required and sets the match length: the game **automatically
+completes** once `overs * 6` ball events have been recorded, so an explicit
+`POST /games/{id}/end` is only needed to stop a game early.
 
 The `Authorization` header above must carry a superadmin token; game writes
 (`POST`/`PUT`/`DELETE`, `start`, `end`, `plays`) are superadmin-only, while any

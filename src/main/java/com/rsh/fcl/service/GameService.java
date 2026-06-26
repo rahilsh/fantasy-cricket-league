@@ -41,9 +41,10 @@ public class GameService {
   }
 
   @Transactional
-  public Game createGame(String team1, String team2, int k) {
+  public Game createGame(String team1, String team2, int k, int overs) {
     validateTopK(k);
-    return gameRepository.save(new Game(team1, team2, k));
+    validateOvers(overs);
+    return gameRepository.save(new Game(team1, team2, k, overs));
   }
 
   @Transactional(readOnly = true)
@@ -57,12 +58,14 @@ public class GameService {
   }
 
   @Transactional
-  public Game updateGame(long gameId, String team1, String team2, int k) {
+  public Game updateGame(long gameId, String team1, String team2, int k, int overs) {
     validateTopK(k);
+    validateOvers(overs);
     Game game = findGame(gameId);
     game.setTeam1(team1);
     game.setTeam2(team2);
     game.setK(k);
+    game.setOvers(overs);
     return gameRepository.save(game);
   }
 
@@ -101,6 +104,12 @@ public class GameService {
     applyBallEvent(outcomeScore, batsman, bowler, userTeamsForGame);
     userTeamRepository.saveAll(userTeamsForGame);
 
+    game.setBallsBowled(game.getBallsBowled() + 1);
+    if (game.getBallsBowled() >= game.totalBalls()) {
+      game.setStatus(GameStatus.COMPLETED);
+    }
+    gameRepository.save(game);
+
     return ballEventRepository.save(new BallEvent(game, batsman, bowler, outcomeScore));
   }
 
@@ -122,6 +131,12 @@ public class GameService {
   private static void validateTopK(int k) {
     if (k <= 0) {
       throw new IllegalArgumentException("Top K value must be greater than zero");
+    }
+  }
+
+  private static void validateOvers(int overs) {
+    if (overs <= 0) {
+      throw new IllegalArgumentException("Overs must be greater than zero");
     }
   }
 

@@ -37,7 +37,8 @@ public class GameController {
   @PostMapping
   public ResponseEntity<GameResponse> createGame(@Valid @RequestBody GameRequest request) {
     GameResponse response = DtoMapper.toGameResponse(
-        gameService.createGame(request.team1(), request.team2(), request.topKOrDefault()));
+        gameService.createGame(request.team1(), request.team2(), request.topKOrDefault(),
+            request.overs()));
     return ResponseEntity.created(URI.create("/api/games/" + response.id())).body(response);
   }
 
@@ -54,7 +55,8 @@ public class GameController {
   @PutMapping("/{id}")
   public GameResponse updateGame(@PathVariable long id, @Valid @RequestBody GameRequest request) {
     return DtoMapper.toGameResponse(
-        gameService.updateGame(id, request.team1(), request.team2(), request.topKOrDefault()));
+        gameService.updateGame(id, request.team1(), request.team2(), request.topKOrDefault(),
+            request.overs()));
   }
 
   @DeleteMapping("/{id}")

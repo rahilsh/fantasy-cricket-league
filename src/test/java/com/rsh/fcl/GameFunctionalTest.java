@@ -61,7 +61,7 @@ class GameFunctionalTest {
 
   @Test
   void simulatesGameEndToEndThroughRestApis() throws Exception {
-    long gameId = createGame("IND", "PAK", 5);
+    long gameId = createGame("IND", "PAK", 5, 10);
     createUser("user1");
     createUser("user2");
     createUser("user3");
@@ -125,13 +125,14 @@ class GameFunctionalTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.userName").value("captain"));
 
-    long gameId = createGame("AUS", "ENG", 2);
+    long gameId = createGame("AUS", "ENG", 2, 5);
     mockMvc.perform(put("/api/games/{id}", gameId)
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"team1\":\"AUS\",\"team2\":\"NZ\",\"k\":1}"))
+            .content("{\"team1\":\"AUS\",\"team2\":\"NZ\",\"k\":1,\"overs\":8}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.team2").value("NZ"))
-        .andExpect(jsonPath("$.k").value(1));
+        .andExpect(jsonPath("$.k").value(1))
+        .andExpect(jsonPath("$.overs").value(8));
 
     long userTeamId = createUserTeam(gameId, "captain", "[1,2,3]");
     mockMvc.perform(put("/api/user-teams/{id}", userTeamId)
@@ -165,7 +166,7 @@ class GameFunctionalTest {
 
   @Test
   void blocksUserTeamModificationAfterGameStart() throws Exception {
-    long gameId = createGame("IND", "AUS", 3);
+    long gameId = createGame("IND", "AUS", 3, 5);
     createUser("captain");
     long userTeamId = createUserTeam(gameId, "captain", "[1,2,3]");
 
@@ -187,7 +188,13 @@ class GameFunctionalTest {
             .content("{\"team1\":\"\",\"team2\":\"PAK\",\"k\":0}"))
         .andExpect(status().isBadRequest());
 
-    long gameId = createGame("IND", "PAK", 3);
+    mockMvc.perform(post("/api/games")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"team1\":\"IND\",\"team2\":\"PAK\",\"k\":3}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("overs must not be null"));
+
+    long gameId = createGame("IND", "PAK", 3, 5);
 
     mockMvc.perform(post("/api/games/{id}/plays", gameId)
             .contentType(MediaType.APPLICATION_JSON)
@@ -237,7 +244,7 @@ class GameFunctionalTest {
 
   @Test
   void coversNotFoundAndDuplicateBranches() throws Exception {
-    long gameId = createGame("IND", "PAK", 3);
+    long gameId = createGame("IND", "PAK", 3, 5);
 
     mockMvc.perform(post("/api/user-teams")
             .contentType(MediaType.APPLICATION_JSON)
@@ -265,7 +272,7 @@ class GameFunctionalTest {
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.message").value("User 9999 does not exist"));
 
-    long emptyGameId = createGame("SL", "BAN", 3);
+    long emptyGameId = createGame("SL", "BAN", 3, 5);
     mockMvc.perform(get("/api/user-teams?gameId={gameId}", emptyGameId))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.message").value(
@@ -274,9 +281,9 @@ class GameFunctionalTest {
 
   @Test
   void userTeamEqualityUsesGameAndUser() {
-    Game game = new Game("IND", "PAK", 3);
+    Game game = new Game("IND", "PAK", 3, 5);
     game.setId(1L);
-    Game anotherGame = new Game("AUS", "ENG", 3);
+    Game anotherGame = new Game("AUS", "ENG", 3, 5);
     anotherGame.setId(2L);
     User user = new User("user1");
     user.setId(1L);
@@ -298,8 +305,41 @@ class GameFunctionalTest {
     assertNotEquals(userTeam, "user1");
   }
 
-  private long createGame(String team1, String team2, int k) throws Exception {
-    String body = "{\"team1\":\"" + team1 + "\",\"team2\":\"" + team2 + "\",\"k\":" + k + "}";
+  @Test
+  void automaticallyEndsGameWhenAllOversAreCompleted() throws Exception {
+    long gameId = createGame("IND", "PAK", 3, 1);
+    createUser("user1");
+    createUserTeam(gameId, "user1", "[1,2,3]");
+
+    mockMvc.perform(post("/api/games/{id}/start", gameId))
+        .andExpect(status().isOk());
+
+    for (int ball = 1; ball <= 5; ball++) {
+      play(gameId, 1, 2, 1);
+    }
+
+    mockMvc.perform(get("/api/games/{id}", gameId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+        .andExpect(jsonPath("$.ballsBowled").value(5));
+
+    play(gameId, 1, 2, 1);
+
+    mockMvc.perform(get("/api/games/{id}", gameId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("COMPLETED"))
+        .andExpect(jsonPath("$.ballsBowled").value(6));
+
+    mockMvc.perform(post("/api/games/{id}/plays", gameId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"batsman\":1,\"bowler\":2,\"outcome\":6}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("Game " + gameId + " already completed"));
+  }
+
+  private long createGame(String team1, String team2, int k, int overs) throws Exception {
+    String body = "{\"team1\":\"" + team1 + "\",\"team2\":\"" + team2 + "\",\"k\":" + k
+        + ",\"overs\":" + overs + "}";
     return idFrom(mockMvc.perform(post("/api/games")
             .contentType(MediaType.APPLICATION_JSON)
             .content(body))

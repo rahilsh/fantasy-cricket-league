@@ -77,7 +77,7 @@ class ApiSecurityTest {
     mockMvc.perform(post("/api/games")
             .header("Authorization", "Bearer " + superadminToken)
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"team1\":\"IND\",\"team2\":\"PAK\",\"k\":3}"))
+            .content("{\"team1\":\"IND\",\"team2\":\"PAK\",\"k\":3,\"overs\":5}"))
         .andExpect(status().isCreated());
   }
 
@@ -104,7 +104,7 @@ class ApiSecurityTest {
     long gameId = idFrom(mockMvc.perform(post("/api/games")
             .header("Authorization", "Bearer " + adminToken)
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"team1\":\"IND\",\"team2\":\"PAK\",\"k\":3}"))
+            .content("{\"team1\":\"IND\",\"team2\":\"PAK\",\"k\":3,\"overs\":5}"))
         .andExpect(status().isCreated())
         .andReturn()
         .getResponse()
@@ -236,7 +236,8 @@ class ApiSecurityTest {
     return idFrom(mockMvc.perform(post("/api/games")
             .header("Authorization", "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"team1\":\"" + team1 + "\",\"team2\":\"" + team2 + "\",\"k\":" + k + "}"))
+            .content("{\"team1\":\"" + team1 + "\",\"team2\":\"" + team2 + "\",\"k\":" + k
+                + ",\"overs\":5}"))
         .andExpect(status().isCreated())
         .andReturn()
         .getResponse()

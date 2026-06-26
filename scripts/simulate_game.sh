@@ -11,7 +11,7 @@
 # Configuration (environment variables):
 #   BASE_URL                          host of the running app   (default http://localhost:8080)
 #   NUM_USERS                         number of fantasy users   (default 4)
-#   NUM_EVENTS                        number of ball events     (default 30)
+#   OVERS                             overs in the game         (default 5, i.e. 30 balls)
 #   FCL_SECURITY_SUPERADMIN_USERNAME  superadmin username       (default fcl-admin)
 #   FCL_SECURITY_SUPERADMIN_PASSWORD  superadmin password       (default fcl-admin-password)
 #
@@ -19,7 +19,8 @@ set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:8080}"
 NUM_USERS="${NUM_USERS:-4}"
-NUM_EVENTS="${NUM_EVENTS:-30}"
+OVERS="${OVERS:-5}"
+NUM_EVENTS=$((OVERS * 6))
 SUPERADMIN_USER="${FCL_SECURITY_SUPERADMIN_USERNAME:-fcl-admin}"
 SUPERADMIN_PASS="${FCL_SECURITY_SUPERADMIN_PASSWORD:-fcl-admin-password}"
 
@@ -37,10 +38,10 @@ SA_TOKEN=$(curl -fsS -X POST "$API/auth/login" \
   -d "{\"userName\":\"$SUPERADMIN_USER\",\"password\":\"$SUPERADMIN_PASS\"}" \
   | jval "['accessToken']")
 
-echo "==> Creating game"
+echo "==> Creating game ($OVERS overs = $NUM_EVENTS balls)"
 GID=$(curl -fsS -X POST "$API/games" \
   -H "Authorization: Bearer $SA_TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"team1\":\"Team Alpha\",\"team2\":\"Team Beta\",\"k\":$NUM_USERS}" \
+  -d "{\"team1\":\"Team Alpha\",\"team2\":\"Team Beta\",\"k\":$NUM_USERS,\"overs\":$OVERS}" \
   | jval "['id']")
 echo "    game id = $GID"
 
@@ -63,7 +64,7 @@ done
 echo "==> Starting game"
 curl -fsS -X POST "$API/games/$GID/start" -H "Authorization: Bearer $SA_TOKEN" >/dev/null
 
-echo "==> Recording $NUM_EVENTS ball events"
+echo "==> Recording $NUM_EVENTS ball events ($OVERS overs); game auto-ends on the final ball"
 OUTCOMES=(1 2 4 6 -1)
 for e in $(seq 1 "$NUM_EVENTS"); do
   batsman=$(( (RANDOM % 22) + 1 ))
@@ -75,8 +76,8 @@ for e in $(seq 1 "$NUM_EVENTS"); do
   printf '    ball %2d: batsman=%2d bowler=%2d outcome=%3s\n' "$e" "$batsman" "$bowler" "$outcome"
 done
 
-echo "==> Ending game"
-curl -fsS -X POST "$API/games/$GID/end" -H "Authorization: Bearer $SA_TOKEN" >/dev/null
+STATUS=$(curl -fsS "$API/games/$GID" -H "Authorization: Bearer $SA_TOKEN" | jval "['status']")
+echo "==> Game status after $OVERS overs: $STATUS"
 
 echo "==> Final leaderboard"
 LB=$(curl -fsS "$API/games/$GID/leaderboard" -H "Authorization: Bearer $SA_TOKEN")

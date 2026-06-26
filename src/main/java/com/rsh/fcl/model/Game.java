@@ -36,10 +36,21 @@ public class Game {
   @Column(name = "top_k", nullable = false)
   private int k = 3;
 
-  public Game(String team1, String team2, int k) {
+  @Column(nullable = false)
+  private int overs;
+
+  @Column(name = "balls_bowled", nullable = false)
+  private int ballsBowled = 0;
+
+  public Game(String team1, String team2, int k, int overs) {
     this.team1 = team1;
     this.team2 = team2;
     this.k = k;
+    this.overs = overs;
+  }
+
+  public int totalBalls() {
+    return overs * 6;
   }
 
   public enum GameStatus {

@@ -17,7 +17,7 @@ public final class DtoMapper {
 
   public static GameResponse toGameResponse(Game game) {
     return new GameResponse(game.getId(), game.getTeam1(), game.getTeam2(), game.getStatus(),
-        game.getK());
+        game.getK(), game.getOvers(), game.getBallsBowled());
   }
 
   public static UserResponse toUserResponse(User user) {
