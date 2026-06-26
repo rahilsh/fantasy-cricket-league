@@ -37,7 +37,6 @@ public class SecurityConfiguration {
             session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
         .authorizeHttpRequests(auth -> auth
-            .requestMatchers("/", "/index.html", "/app.js", "/styles.css").permitAll()
             .requestMatchers("/h2-console/**").permitAll()
             .requestMatchers("/api/auth/**").permitAll()
             .requestMatchers("/openapi.yaml").permitAll()
