@@ -9,6 +9,7 @@ import com.rsh.fcl.exception.BallEventNotSupportedException;
 import com.rsh.fcl.model.BallEvent;
 import com.rsh.fcl.model.Game;
 import com.rsh.fcl.model.Player;
+import com.rsh.fcl.model.PlayerType;
 import com.rsh.fcl.model.Team;
 import com.rsh.fcl.model.UserTeam;
 import com.rsh.fcl.dto.PlayerRequest;
@@ -262,15 +263,33 @@ public class GameService {
       throw new IllegalArgumentException("Game must have exactly two teams");
     }
     for (Team team : teams) {
-      if (team.getPlayers().size() != 11) {
-        throw new IllegalArgumentException("Each team must contain exactly 11 players");
-      }
+      validateTeamComposition(team);
     }
     List<Long> globalIds = game.getAllPlayers().stream()
         .map(Player::getGlobalUniqueId)
         .toList();
     if (new LinkedHashSet<>(globalIds).size() != globalIds.size()) {
       throw new IllegalArgumentException("Player global unique IDs must be unique");
+    }
+  }
+
+  private static void validateTeamComposition(Team team) {
+    if (team.getPlayers().size() != 11) {
+      throw new IllegalArgumentException("Each team must contain exactly 11 players");
+    }
+    long wicketkeepers = team.getPlayers().stream()
+        .filter(player -> player.getType() == PlayerType.WICKETKEEPER)
+        .count();
+    if (wicketkeepers < 1) {
+      throw new IllegalArgumentException("Each team must contain at least one wicketkeeper");
+    }
+    long bowlersAndAllrounders = team.getPlayers().stream()
+        .filter(player -> player.getType() == PlayerType.BOWLER
+            || player.getType() == PlayerType.ALLROUNDER)
+        .count();
+    if (bowlersAndAllrounders < 5) {
+      throw new IllegalArgumentException(
+          "Each team must contain at least 5 bowlers and all-rounders");
     }
   }
 }

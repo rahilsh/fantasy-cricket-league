@@ -114,7 +114,7 @@ def create_game(sa_token):
     print(f"==> Creating game ({OVERS} overs = {NUM_EVENTS} balls)")
     team1_players = build_squad(ROSTER_BASE, "Team Alpha")
     team2_players = build_squad(ROSTER_BASE + TEAM_SIZE, "Team Beta")
-    _, game = request(
+    status, game = request(
         "POST",
         "/games",
         token=sa_token,
@@ -127,6 +127,8 @@ def create_game(sa_token):
             "team2Players": team2_players,
         },
     )
+    if status not in (200, 201) or not game or "id" not in game:
+        raise SystemExit(f"error: game creation failed (HTTP {status}): {game}")
     roster = team1_players + team2_players
     print(f"    game id = {game['id']} ({len(roster)} players in roster)")
     return game["id"], roster
