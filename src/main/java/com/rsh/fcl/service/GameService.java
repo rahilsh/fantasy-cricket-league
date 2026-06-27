@@ -8,10 +8,17 @@ import com.rsh.fcl.exception.GameNotStartedException;
 import com.rsh.fcl.exception.BallEventNotSupportedException;
 import com.rsh.fcl.model.BallEvent;
 import com.rsh.fcl.model.Game;
+import com.rsh.fcl.model.Player;
+import com.rsh.fcl.model.Team;
 import com.rsh.fcl.model.UserTeam;
+import com.rsh.fcl.dto.PlayerRequest;
 import com.rsh.fcl.repository.BallEventRepository;
 import com.rsh.fcl.repository.GameRepository;
 import com.rsh.fcl.repository.UserTeamRepository;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import java.util.Comparator;
@@ -41,10 +48,19 @@ public class GameService {
   }
 
   @Transactional
-  public Game createGame(String team1, String team2, int k, int overs) {
+  public Game createGame(
+      String team1,
+      String team2,
+      int k,
+      int overs,
+      List<PlayerRequest> team1Players,
+      List<PlayerRequest> team2Players) {
     validateTopK(k);
     validateOvers(overs);
-    return gameRepository.save(new Game(team1, team2, k, overs));
+    Game game = new Game(k, overs);
+    applyTeams(game, team1, team1Players, team2, team2Players);
+    validateRoster(game);
+    return gameRepository.save(game);
   }
 
   @Transactional(readOnly = true)
@@ -58,14 +74,21 @@ public class GameService {
   }
 
   @Transactional
-  public Game updateGame(long gameId, String team1, String team2, int k, int overs) {
+  public Game updateGame(
+      long gameId,
+      String team1,
+      String team2,
+      int k,
+      int overs,
+      List<PlayerRequest> team1Players,
+      List<PlayerRequest> team2Players) {
     validateTopK(k);
     validateOvers(overs);
     Game game = findGame(gameId);
-    game.setTeam1(team1);
-    game.setTeam2(team2);
     game.setK(k);
     game.setOvers(overs);
+    applyTeams(game, team1, team1Players, team2, team2Players);
+    validateRoster(game);
     return gameRepository.save(game);
   }
 
@@ -96,7 +119,7 @@ public class GameService {
   }
 
   @Transactional
-  public BallEvent play(long gameId, int batsman, int bowler, int outcomeScore) {
+  public BallEvent play(long gameId, long batsman, long bowler, int outcomeScore) {
     Game game = findGame(gameId);
     validateGameState(gameId, game);
 
@@ -153,8 +176,8 @@ public class GameService {
 
   private static void applyBallEvent(
       int outcome,
-      int batsman,
-      int bowler,
+      long batsman,
+      long bowler,
       List<UserTeam> userTeamsForGame) {
     switch (outcome) {
       case 1 -> updatePoints(userTeamsForGame, batsman, 0.5);
@@ -178,9 +201,76 @@ public class GameService {
     }
   }
 
-  private static void updatePoints(List<UserTeam> userTeams, int playerId, double delta) {
+  private static void updatePoints(List<UserTeam> userTeams, long playerId, double delta) {
     userTeams.stream()
         .filter(userTeam -> userTeam.hasPlayer(playerId))
         .forEach(userTeam -> userTeam.setPoints(userTeam.getPoints() + delta));
+  }
+
+  private static void applyTeams(
+      Game game,
+      String team1Name,
+      List<PlayerRequest> team1Players,
+      String team2Name,
+      List<PlayerRequest> team2Players) {
+    List<Team> existingTeams = new ArrayList<>(game.getTeams());
+    if (existingTeams.size() == 2) {
+      syncTeam(existingTeams.get(0), team1Name, team1Players);
+      syncTeam(existingTeams.get(1), team2Name, team2Players);
+    } else {
+      game.getTeams().clear();
+      game.addTeam(buildTeam(team1Name, team1Players));
+      game.addTeam(buildTeam(team2Name, team2Players));
+    }
+  }
+
+  private static Team buildTeam(String teamName, List<PlayerRequest> players) {
+    Team team = new Team(teamName);
+    for (PlayerRequest playerRequest : players) {
+      team.addPlayer(new Player(playerRequest.globalUniqueId(), playerRequest.name(),
+          playerRequest.type()));
+    }
+    return team;
+  }
+
+  private static void syncTeam(Team team, String teamName, List<PlayerRequest> players) {
+    team.setName(teamName);
+    Map<Long, Player> existingPlayers = team.getPlayers().stream()
+        .collect(Collectors.toMap(Player::getGlobalUniqueId, player -> player));
+
+    LinkedHashSet<Player> updatedPlayers = new LinkedHashSet<>();
+    for (PlayerRequest playerRequest : players) {
+      Player player = existingPlayers.get(playerRequest.globalUniqueId());
+      if (player == null) {
+        player = new Player(playerRequest.globalUniqueId(), playerRequest.name(),
+            playerRequest.type());
+        player.setTeam(team);
+      } else {
+        player.setName(playerRequest.name());
+        player.setType(playerRequest.type());
+      }
+      updatedPlayers.add(player);
+    }
+
+    team.getPlayers().retainAll(updatedPlayers);
+    team.getPlayers().addAll(updatedPlayers);
+  }
+
+  private static void validateRoster(Game game) {
+    List<Team> teams = new ArrayList<>(game.getTeams());
+    if (teams.size() != 2) {
+      throw new IllegalArgumentException("Game must have exactly two teams");
+    }
+    for (Team team : teams) {
+      if (team.getPlayers().size() != 11) {
+        throw new IllegalArgumentException("Each team must contain exactly 11 players");
+      }
+    }
+    List<Long> globalIds = game.getAllPlayers().stream()
+        .map(Player::getGlobalUniqueId)
+        .toList();
+    if (new LinkedHashSet<>(globalIds).size() != globalIds.size()) {
+      throw new IllegalArgumentException("Player global unique IDs must be unique");
+    }
   }
 }

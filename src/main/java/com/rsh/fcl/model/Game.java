@@ -1,13 +1,20 @@
 package com.rsh.fcl.model;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -25,12 +32,6 @@ public class Game {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(nullable = false)
-  private String team1;
-
-  @Column(nullable = false)
-  private String team2;
-
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
   private GameStatus status = GameStatus.CREATED;
@@ -47,15 +48,32 @@ public class Game {
   @Column(name = "wickets", nullable = false)
   private int wickets = 0;
 
-  public Game(String team1, String team2, int k, int overs) {
-    this.team1 = team1;
-    this.team2 = team2;
+  @OneToMany(
+      mappedBy = "game",
+      cascade = CascadeType.ALL,
+      orphanRemoval = true,
+      fetch = FetchType.EAGER)
+  @OrderBy("id ASC")
+  private Set<Team> teams = new LinkedHashSet<>();
+
+  public Game(int k, int overs) {
     this.k = k;
     this.overs = overs;
   }
 
   public int totalBalls() {
     return overs * 6;
+  }
+
+  public void addTeam(Team team) {
+    team.setGame(this);
+    teams.add(team);
+  }
+
+  public List<Player> getAllPlayers() {
+    return teams.stream()
+        .flatMap(team -> team.getPlayers().stream())
+        .toList();
   }
 
   public boolean isInningsOver() {

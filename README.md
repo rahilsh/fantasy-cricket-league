@@ -3,6 +3,23 @@
 Fantasy Cricket League is a Spring Boot REST API for creating games, user teams,
 recording ball events, and viewing the top-K fantasy leaderboard.
 
+## Game Rules
+
+- **Players** are predefined entities, each with a globally unique id, a name,
+  and a `type` of `BATTER`, `BOWLER`, `ALLROUNDER`, or `WICKETKEEPER`. A player
+  can only belong to one active game at a time.
+- **A game** owns two **teams**, and each team has exactly **11 players**, for a
+  22-player roster per game. The game references players only through its teams.
+- **A user team** is a fantasy XI picked from that game's 22-player roster and
+  must contain exactly **11 players**, selected subject to these constraints:
+  - at least **one WICKETKEEPER**;
+  - at least **five** players that are `BOWLER` or `ALLROUNDER` combined.
+- **Ball events** record a batsman, a bowler (by player id), and an outcome.
+  Run outcomes (`1`, `2`, `4`, `6`) and wickets (`-1`) score fantasy points for
+  the user teams that own the involved players.
+- **A game auto-ends** once all overs are bowled or 10 wickets fall, whichever
+  comes first, after which the top-K **leaderboard** is finalised.
+
 ## Tech Stack
 
 - Java 21
@@ -11,7 +28,7 @@ recording ball events, and viewing the top-K fantasy leaderboard.
 - Spring Data JPA
 - H2 file database for local persistent storage
 - JUnit 6 via Spring Boot test support
-- JaCoCo coverage gate at 80%
+- JaCoCo coverage gate at 85%
 
 ## Local Database
 
@@ -165,8 +182,43 @@ Create a game:
 curl -X POST http://localhost:8080/api/games \
   -H "Authorization: Bearer <admin_token>" \
   -H 'Content-Type: application/json' \
-  -d '{"team1":"IND","team2":"PAK","k":5,"overs":20}'
+  -d '{
+        "team1": "IND",
+        "team2": "PAK",
+        "k": 5,
+        "overs": 20,
+        "team1Players": [
+          {"globalUniqueId": 1,  "name": "IND P1",  "type": "WICKETKEEPER"},
+          {"globalUniqueId": 2,  "name": "IND P2",  "type": "BOWLER"},
+          {"globalUniqueId": 3,  "name": "IND P3",  "type": "BOWLER"},
+          {"globalUniqueId": 4,  "name": "IND P4",  "type": "BOWLER"},
+          {"globalUniqueId": 5,  "name": "IND P5",  "type": "BOWLER"},
+          {"globalUniqueId": 6,  "name": "IND P6",  "type": "ALLROUNDER"},
+          {"globalUniqueId": 7,  "name": "IND P7",  "type": "ALLROUNDER"},
+          {"globalUniqueId": 8,  "name": "IND P8",  "type": "ALLROUNDER"},
+          {"globalUniqueId": 9,  "name": "IND P9",  "type": "BATTER"},
+          {"globalUniqueId": 10, "name": "IND P10", "type": "BATTER"},
+          {"globalUniqueId": 11, "name": "IND P11", "type": "BATTER"}
+        ],
+        "team2Players": [
+          {"globalUniqueId": 12, "name": "PAK P1",  "type": "WICKETKEEPER"},
+          {"globalUniqueId": 13, "name": "PAK P2",  "type": "BOWLER"},
+          {"globalUniqueId": 14, "name": "PAK P3",  "type": "BOWLER"},
+          {"globalUniqueId": 15, "name": "PAK P4",  "type": "BOWLER"},
+          {"globalUniqueId": 16, "name": "PAK P5",  "type": "BOWLER"},
+          {"globalUniqueId": 17, "name": "PAK P6",  "type": "ALLROUNDER"},
+          {"globalUniqueId": 18, "name": "PAK P7",  "type": "ALLROUNDER"},
+          {"globalUniqueId": 19, "name": "PAK P8",  "type": "ALLROUNDER"},
+          {"globalUniqueId": 20, "name": "PAK P9",  "type": "BATTER"},
+          {"globalUniqueId": 21, "name": "PAK P10", "type": "BATTER"},
+          {"globalUniqueId": 22, "name": "PAK P11", "type": "BATTER"}
+        ]
+      }'
 ```
+
+Each game requires exactly **11 players per team** (22 total). Every player has a
+globally unique `globalUniqueId`, a `name`, and a `type` of `BATTER`, `BOWLER`,
+`ALLROUNDER`, or `WICKETKEEPER`.
 
 `overs` is required and sets the match length: the game **automatically
 completes** once `overs * 6` ball events have been recorded, or earlier once
@@ -210,7 +262,9 @@ curl -X POST http://localhost:8080/api/user-teams \
 
 `userName` must reference an existing user from `POST /users`.
 Users can only access and modify their own teams.
-User team players are limited to max 11.
+A user team must contain exactly **11 players** drawn from the game's 22-player
+roster, including at least **one WICKETKEEPER** and at least **five** players that
+are `BOWLER` or `ALLROUNDER` combined.
 User teams cannot be modified once the game has started.
 
 Use `POST /games/{id}/plays` for game simulation because it records the ball event and

@@ -2,18 +2,18 @@ package com.rsh.fcl.model;
 
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import java.util.HashSet;
-import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
 import lombok.Getter;
@@ -47,23 +47,25 @@ public class UserTeam {
   @Column(nullable = false)
   private double points;
 
-  @ElementCollection(fetch = FetchType.EAGER)
-  @CollectionTable(name = "user_team_players", joinColumns = @JoinColumn(name = "user_team_id"))
-  @Column(name = "player_id", nullable = false)
-  private Set<Integer> players = new HashSet<>();
+  @ManyToMany(fetch = FetchType.EAGER)
+  @JoinTable(
+      name = "user_team_players",
+      joinColumns = @JoinColumn(name = "user_team_id"),
+      inverseJoinColumns = @JoinColumn(name = "player_id"))
+  private Set<Player> players = new LinkedHashSet<>();
 
-  public UserTeam(Game game, User user, List<Integer> players) {
+  public UserTeam(Game game, User user, Set<Player> players) {
     this.game = game;
     this.user = user;
-    this.players = new HashSet<>(players);
+    this.players = new LinkedHashSet<>(players);
   }
 
   public String getUserName() {
     return user != null ? user.getUserName() : null;
   }
 
-  public boolean hasPlayer(int playerId) {
-    return players.contains(playerId);
+  public boolean hasPlayer(long globalUniqueId) {
+    return players.stream().anyMatch(player -> player.getGlobalUniqueId() == globalUniqueId);
   }
 
   @Override

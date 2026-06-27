@@ -39,7 +39,7 @@ paths:
         '200':
           description: Paged games response
     post:
-      summary: Create game (requires overs; auto-completes after overs*6 balls or 10 wickets)
+      summary: Create game with 11 players per side (auto-completes after overs*6 balls or 10 wickets)
       responses:
         '201':
           description: Created
@@ -96,7 +96,7 @@ paths:
         '200':
           description: Paged user teams response
     post:
-      summary: Create user team
+      summary: Create user team with exactly 11 players from the game roster
       responses:
         '201':
           description: Created

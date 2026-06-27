@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Drive a full Fantasy Cricket League game through the REST API.
 
-It logs in as superadmin, creates a game, signs up a set of users (each with a
-random XI of up to 11 players), starts the game, records random ball events, and
-prints the winner with their players. The game auto-ends once all overs are
-bowled or 10 wickets fall, whichever comes first.
+It logs in as superadmin, creates a game with two 11-player squads (22 players
+total, each player having a globally unique id, name and type), signs up a set
+of users (each with a valid random XI picked from the 22 roster players), starts
+the game, records random ball events, and prints the winner with their players.
+The game auto-ends once all overs are bowled or 10 wickets fall, whichever comes
+first.
 
 Requirements: Python 3 (standard library only) and a running app
 (e.g. ``mvn spring-boot:run``).
@@ -34,7 +36,52 @@ SUPERADMIN_PASS = os.environ.get("FCL_SECURITY_SUPERADMIN_PASSWORD", "fcl-admin-
 API = f"{BASE_URL}/api"
 NUM_EVENTS = OVERS * 6
 OUTCOMES = [1, 2, 4, 6, -1]
-PLAYER_POOL = range(1, 23)  # player ids 1..22
+
+# Player ids must be globally unique across games, so derive a per-run base
+# offset from the current time and lay out 22 consecutive ids for the roster.
+ROSTER_BASE = int(time.time()) * 100
+TEAM_SIZE = 11
+
+# Local offset within a team -> player type. This guarantees every team has one
+# wicketkeeper and at least five bowlers/all-rounders, matching the squad rules
+# enforced when users pick their XI.
+TYPE_BY_OFFSET = (
+    "WICKETKEEPER",  # 0
+    "BOWLER", "BOWLER", "BOWLER", "BOWLER",  # 1-4
+    "ALLROUNDER", "ALLROUNDER", "ALLROUNDER",  # 5-7
+    "BATTER", "BATTER", "BATTER",  # 8-10
+)
+
+
+def build_squad(base_id, team_name):
+    """Return (list_of_player_request_dicts, list_of_player_ids) for one team."""
+    players = []
+    for offset in range(TEAM_SIZE):
+        pid = base_id + offset
+        players.append(
+            {
+                "globalUniqueId": pid,
+                "name": f"{team_name} P{offset + 1}",
+                "type": TYPE_BY_OFFSET[offset],
+            }
+        )
+    return players
+
+
+def pick_valid_xi(roster):
+    """Pick 11 players obeying: >=1 wicketkeeper, >=5 bowler/all-rounder."""
+    by_type = {}
+    for p in roster:
+        by_type.setdefault(p["type"], []).append(p["globalUniqueId"])
+
+    chosen = set()
+    chosen.add(random.choice(by_type["WICKETKEEPER"]))
+    pace = by_type.get("BOWLER", []) + by_type.get("ALLROUNDER", [])
+    chosen.update(random.sample(pace, 5))
+
+    remaining = [p["globalUniqueId"] for p in roster if p["globalUniqueId"] not in chosen]
+    chosen.update(random.sample(remaining, TEAM_SIZE - len(chosen)))
+    return sorted(chosen)
 
 
 def request(method, path, token=None, body=None):
@@ -65,23 +112,33 @@ def signup(username, password):
 
 def create_game(sa_token):
     print(f"==> Creating game ({OVERS} overs = {NUM_EVENTS} balls)")
+    team1_players = build_squad(ROSTER_BASE, "Team Alpha")
+    team2_players = build_squad(ROSTER_BASE + TEAM_SIZE, "Team Beta")
     _, game = request(
         "POST",
         "/games",
         token=sa_token,
-        body={"team1": "Team Alpha", "team2": "Team Beta", "k": NUM_USERS, "overs": OVERS},
+        body={
+            "team1": "Team Alpha",
+            "team2": "Team Beta",
+            "k": NUM_USERS,
+            "overs": OVERS,
+            "team1Players": team1_players,
+            "team2Players": team2_players,
+        },
     )
-    print(f"    game id = {game['id']}")
-    return game["id"]
+    roster = team1_players + team2_players
+    print(f"    game id = {game['id']} ({len(roster)} players in roster)")
+    return game["id"], roster
 
 
-def register_users_with_teams(game_id):
+def register_users_with_teams(game_id, roster):
     suffix = int(time.time())
-    print(f"==> Signing up {NUM_USERS} users and creating teams (max 11 players each)")
+    print(f"==> Signing up {NUM_USERS} users and creating teams (11 players each)")
     for i in range(1, NUM_USERS + 1):
         username = f"player{i}_{suffix}"
         user_token = signup(username, "password123")
-        players = sorted(random.sample(PLAYER_POOL, 11))
+        players = pick_valid_xi(roster)
         request(
             "POST",
             "/user-teams",
@@ -91,18 +148,19 @@ def register_users_with_teams(game_id):
         print(f"    {username:<18} -> {players}")
 
 
-def play_ball_events(game_id, sa_token):
+def play_ball_events(game_id, sa_token, roster):
     print("==> Starting game")
     request("POST", f"/games/{game_id}/start", token=sa_token)
 
+    player_ids = [p["globalUniqueId"] for p in roster]
     print(
         f"==> Recording up to {NUM_EVENTS} ball events ({OVERS} overs); "
         "game auto-ends after all overs or 10 wickets"
     )
     wickets = 0
     for ball in range(1, NUM_EVENTS + 1):
-        batsman = random.randint(1, 22)
-        bowler = random.randint(1, 22)
+        batsman = random.choice(player_ids)
+        bowler = random.choice(player_ids)
         outcome = random.choice(OUTCOMES)
         status, _ = request(
             "POST",
@@ -155,9 +213,9 @@ def main():
     print(f"==> Logging in as superadmin ({SUPERADMIN_USER})")
     sa_token = login(SUPERADMIN_USER, SUPERADMIN_PASS)
 
-    game_id = create_game(sa_token)
-    register_users_with_teams(game_id)
-    play_ball_events(game_id, sa_token)
+    game_id, roster = create_game(sa_token)
+    register_users_with_teams(game_id, roster)
+    play_ball_events(game_id, sa_token, roster)
     print_results(game_id, sa_token)
 
 

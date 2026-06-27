@@ -7,6 +7,8 @@ import com.rsh.fcl.exception.UserTeamExistsException;
 import com.rsh.fcl.exception.UserTeamNotFoundForGameException;
 import com.rsh.fcl.model.Game;
 import com.rsh.fcl.model.Game.GameStatus;
+import com.rsh.fcl.model.Player;
+import com.rsh.fcl.model.PlayerType;
 import com.rsh.fcl.model.User;
 import com.rsh.fcl.model.UserTeam;
 import com.rsh.fcl.repository.GameRepository;
@@ -14,6 +16,7 @@ import com.rsh.fcl.repository.UserRepository;
 import com.rsh.fcl.repository.UserTeamRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import java.util.LinkedHashSet;
 import java.util.HashSet;
 import java.util.List;
 import org.springframework.security.access.AccessDeniedException;
@@ -37,7 +40,7 @@ public class UserTeamService {
   }
 
   @Transactional
-  public UserTeam createTeamForUser(long gameId, List<Integer> players, String userName) {
+  public UserTeam createTeamForUser(long gameId, List<Long> players, String userName) {
     Game game = gameRepository.findById(gameId)
         .orElseThrow(() -> new GameNotFoundException(gameId));
     ensureGameIsEditable(game);
@@ -45,7 +48,7 @@ public class UserTeamService {
     if (userTeamRepository.existsByGameIdAndUser_UserName(gameId, userName)) {
       throw new UserTeamExistsException(userName, gameId);
     }
-    return userTeamRepository.save(new UserTeam(game, user, players));
+    return userTeamRepository.save(new UserTeam(game, user, resolvePlayers(game, players)));
   }
 
   @Transactional(readOnly = true)
@@ -92,7 +95,7 @@ public class UserTeamService {
   public UserTeam updateUserTeam(
       long id,
       long gameId,
-      List<Integer> players,
+      List<Long> players,
       String userName,
       double points) {
     UserTeam userTeam = getUserTeam(id);
@@ -108,7 +111,7 @@ public class UserTeamService {
 
     userTeam.setGame(game);
     userTeam.setUser(user);
-    userTeam.setPlayers(new HashSet<>(players));
+    userTeam.setPlayers(resolvePlayers(game, players));
     userTeam.setPoints(points);
     return userTeamRepository.save(userTeam);
   }
@@ -138,5 +141,35 @@ public class UserTeamService {
     if (!game.getStatus().equals(GameStatus.CREATED)) {
       throw new IllegalArgumentException("User teams cannot be modified after game has started");
     }
+  }
+
+  private static LinkedHashSet<Player> resolvePlayers(Game game, List<Long> playerIds) {
+    if (playerIds.size() != 11) {
+      throw new IllegalArgumentException("User team must contain exactly 11 players");
+    }
+    LinkedHashSet<Player> selectedPlayers = game.getAllPlayers().stream()
+        .filter(player -> playerIds.contains(player.getGlobalUniqueId()))
+        .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+    if (selectedPlayers.size() != 11) {
+      throw new IllegalArgumentException("Selected players must belong to the game roster");
+    }
+    if (new HashSet<>(playerIds).size() != 11) {
+      throw new IllegalArgumentException("Player global unique IDs must be unique");
+    }
+    long wicketkeepers = selectedPlayers.stream()
+        .filter(player -> player.getType() == PlayerType.WICKETKEEPER)
+        .count();
+    if (wicketkeepers < 1) {
+      throw new IllegalArgumentException("User team must contain at least one wicketkeeper");
+    }
+    long bowlersAndAllrounders = selectedPlayers.stream()
+        .filter(player -> player.getType() == PlayerType.BOWLER
+            || player.getType() == PlayerType.ALLROUNDER)
+        .count();
+    if (bowlersAndAllrounders < 5) {
+      throw new IllegalArgumentException(
+          "User team must contain at least 5 bowlers and all-rounders");
+    }
+    return selectedPlayers;
   }
 }
