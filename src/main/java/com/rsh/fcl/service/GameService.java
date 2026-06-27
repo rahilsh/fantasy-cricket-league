@@ -2,27 +2,26 @@ package com.rsh.fcl.service;
 
 import static com.rsh.fcl.model.Game.GameStatus;
 
+import com.rsh.fcl.exception.BallEventNotSupportedException;
 import com.rsh.fcl.exception.GameAlreadyCompletedException;
 import com.rsh.fcl.exception.GameNotFoundException;
 import com.rsh.fcl.exception.GameNotStartedException;
-import com.rsh.fcl.exception.BallEventNotSupportedException;
+import com.rsh.fcl.exception.ResourceNotFoundException;
 import com.rsh.fcl.model.BallEvent;
 import com.rsh.fcl.model.Game;
-import com.rsh.fcl.model.Player;
-import com.rsh.fcl.model.PlayerType;
 import com.rsh.fcl.model.Team;
+import com.rsh.fcl.model.Tournament;
+import com.rsh.fcl.model.Tournament.TournamentStatus;
 import com.rsh.fcl.model.UserTeam;
-import com.rsh.fcl.dto.PlayerRequest;
 import com.rsh.fcl.repository.BallEventRepository;
 import com.rsh.fcl.repository.GameRepository;
+import com.rsh.fcl.repository.TeamRepository;
+import com.rsh.fcl.repository.TournamentRepository;
 import com.rsh.fcl.repository.UserTeamRepository;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.Set;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import java.util.Comparator;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,35 +34,40 @@ public class GameService {
       .thenComparing(UserTeam::getUserName);
 
   private final GameRepository gameRepository;
+  private final TournamentRepository tournamentRepository;
+  private final TeamRepository teamRepository;
   private final UserTeamRepository userTeamRepository;
   private final BallEventRepository ballEventRepository;
-  private final ReadablePlayerIdGenerator playerIdGenerator;
 
   public GameService(
       GameRepository gameRepository,
+      TournamentRepository tournamentRepository,
+      TeamRepository teamRepository,
       UserTeamRepository userTeamRepository,
-      BallEventRepository ballEventRepository,
-      ReadablePlayerIdGenerator playerIdGenerator) {
+      BallEventRepository ballEventRepository) {
     this.gameRepository = gameRepository;
+    this.tournamentRepository = tournamentRepository;
+    this.teamRepository = teamRepository;
     this.userTeamRepository = userTeamRepository;
     this.ballEventRepository = ballEventRepository;
-    this.playerIdGenerator = playerIdGenerator;
   }
 
   @Transactional
-  public Game createGame(
-      String team1,
-      String team2,
-      int k,
-      int overs,
-      List<PlayerRequest> team1Players,
-      List<PlayerRequest> team2Players) {
+  public Game createGame(long tournamentId, long team1Id, long team2Id, int k, int overs) {
     validateTopK(k);
     validateOvers(overs);
-    Game game = new Game(k, overs);
-    applyTeams(game, team1, team1Players, team2, team2Players);
-    validateRoster(game);
-    return gameRepository.save(game);
+    Tournament tournament = findTournament(tournamentId);
+    if (tournament.getStatus() == TournamentStatus.COMPLETED) {
+      throw new IllegalArgumentException("Cannot create games in a completed tournament");
+    }
+    Team team1 = resolveTeam(tournament, team1Id);
+    Team team2 = resolveTeam(tournament, team2Id);
+    if (team1.getId().equals(team2.getId())) {
+      throw new IllegalArgumentException("A game must be between two distinct teams");
+    }
+    SquadRules.validateComposition(team1.getCricketers(), "Team " + team1.getName());
+    SquadRules.validateComposition(team2.getCricketers(), "Team " + team2.getName());
+    return gameRepository.save(new Game(tournament, team1, team2, k, overs));
   }
 
   @Transactional(readOnly = true)
@@ -77,28 +81,30 @@ public class GameService {
   }
 
   @Transactional
-  public Game updateGame(
-      long gameId,
-      String team1,
-      String team2,
-      int k,
-      int overs,
-      List<PlayerRequest> team1Players,
-      List<PlayerRequest> team2Players) {
+  public Game updateGame(long gameId, long tournamentId, long team1Id, long team2Id, int k,
+      int overs) {
     validateTopK(k);
     validateOvers(overs);
     Game game = findGame(gameId);
+    Tournament tournament = findTournament(tournamentId);
+    Team team1 = resolveTeam(tournament, team1Id);
+    Team team2 = resolveTeam(tournament, team2Id);
+    if (team1.getId().equals(team2.getId())) {
+      throw new IllegalArgumentException("A game must be between two distinct teams");
+    }
+    SquadRules.validateComposition(team1.getCricketers(), "Team " + team1.getName());
+    SquadRules.validateComposition(team2.getCricketers(), "Team " + team2.getName());
+    game.setTournament(tournament);
+    game.setTeam1(team1);
+    game.setTeam2(team2);
     game.setK(k);
     game.setOvers(overs);
-    applyTeams(game, team1, team1Players, team2, team2Players);
-    validateRoster(game);
     return gameRepository.save(game);
   }
 
   @Transactional
   public void deleteGame(long gameId) {
-    Game game = findGame(gameId);
-    gameRepository.delete(game);
+    gameRepository.delete(findGame(gameId));
   }
 
   @Transactional
@@ -107,6 +113,7 @@ public class GameService {
     if (game.getStatus().equals(GameStatus.COMPLETED)) {
       throw new GameAlreadyCompletedException(gameId);
     }
+    ensureTeamsAreFree(game);
     game.setStatus(GameStatus.IN_PROGRESS);
     return gameRepository.save(game);
   }
@@ -150,6 +157,33 @@ public class GameService {
         .sorted(BEST_TOP_USER_FIRST)
         .limit(game.getK())
         .toList();
+  }
+
+  private void ensureTeamsAreFree(Game game) {
+    for (Team team : List.of(game.getTeam1(), game.getTeam2())) {
+      boolean busy = gameRepository.findByStatusAndTeam(GameStatus.IN_PROGRESS, team.getId())
+          .stream()
+          .anyMatch(other -> !other.getId().equals(game.getId()));
+      if (busy) {
+        throw new IllegalArgumentException(
+            "Team " + team.getName() + " is already in another in-progress game");
+      }
+    }
+  }
+
+  private Team resolveTeam(Tournament tournament, long teamId) {
+    Team team = teamRepository.findById(teamId)
+        .orElseThrow(() -> new ResourceNotFoundException("Team", teamId));
+    if (!team.getTournament().getId().equals(tournament.getId())) {
+      throw new IllegalArgumentException(
+          "Team " + teamId + " does not belong to tournament " + tournament.getId());
+    }
+    return team;
+  }
+
+  private Tournament findTournament(long tournamentId) {
+    return tournamentRepository.findById(tournamentId)
+        .orElseThrow(() -> new ResourceNotFoundException("Tournament", tournamentId));
   }
 
   private Game findGame(long gameId) {
@@ -204,84 +238,9 @@ public class GameService {
     }
   }
 
-  private static void updatePoints(List<UserTeam> userTeams, String playerId, double delta) {
+  private static void updatePoints(List<UserTeam> userTeams, String cricketerId, double delta) {
     userTeams.stream()
-        .filter(userTeam -> userTeam.hasPlayer(playerId))
+        .filter(userTeam -> userTeam.hasPlayer(cricketerId))
         .forEach(userTeam -> userTeam.setPoints(userTeam.getPoints() + delta));
-  }
-
-  private void applyTeams(
-      Game game,
-      String team1Name,
-      List<PlayerRequest> team1Players,
-      String team2Name,
-      List<PlayerRequest> team2Players) {
-    List<Team> existingTeams = new ArrayList<>(game.getTeams());
-    if (existingTeams.size() == 2) {
-      syncTeam(existingTeams.get(0), team1Name, team1Players);
-      syncTeam(existingTeams.get(1), team2Name, team2Players);
-    } else {
-      game.getTeams().clear();
-      Set<String> reservedIds = new LinkedHashSet<>();
-      game.addTeam(buildTeam(team1Name, team1Players, reservedIds));
-      game.addTeam(buildTeam(team2Name, team2Players, reservedIds));
-    }
-  }
-
-  private Team buildTeam(String teamName, List<PlayerRequest> players, Set<String> reservedIds) {
-    Team team = new Team(teamName);
-    for (PlayerRequest playerRequest : players) {
-      String globalUniqueId = playerIdGenerator.generateUnique(reservedIds);
-      reservedIds.add(globalUniqueId);
-      team.addPlayer(new Player(globalUniqueId, playerRequest.name(), playerRequest.type()));
-    }
-    return team;
-  }
-
-  private static void syncTeam(Team team, String teamName, List<PlayerRequest> players) {
-    team.setName(teamName);
-    List<Player> existingPlayers = new ArrayList<>(team.getPlayers());
-    for (int index = 0; index < existingPlayers.size() && index < players.size(); index++) {
-      Player player = existingPlayers.get(index);
-      PlayerRequest playerRequest = players.get(index);
-      player.setName(playerRequest.name());
-      player.setType(playerRequest.type());
-    }
-  }
-
-  private static void validateRoster(Game game) {
-    List<Team> teams = new ArrayList<>(game.getTeams());
-    if (teams.size() != 2) {
-      throw new IllegalArgumentException("Game must have exactly two teams");
-    }
-    for (Team team : teams) {
-      validateTeamComposition(team);
-    }
-    List<String> globalIds = game.getAllPlayers().stream()
-        .map(Player::getGlobalUniqueId)
-        .toList();
-    if (new LinkedHashSet<>(globalIds).size() != globalIds.size()) {
-      throw new IllegalArgumentException("Player global unique IDs must be unique");
-    }
-  }
-
-  private static void validateTeamComposition(Team team) {
-    if (team.getPlayers().size() != 11) {
-      throw new IllegalArgumentException("Each team must contain exactly 11 players");
-    }
-    long wicketkeepers = team.getPlayers().stream()
-        .filter(player -> player.getType() == PlayerType.WICKETKEEPER)
-        .count();
-    if (wicketkeepers < 1) {
-      throw new IllegalArgumentException("Each team must contain at least one wicketkeeper");
-    }
-    long bowlersAndAllrounders = team.getPlayers().stream()
-        .filter(player -> player.getType() == PlayerType.BOWLER
-            || player.getType() == PlayerType.ALLROUNDER)
-        .count();
-    if (bowlersAndAllrounders < 5) {
-      throw new IllegalArgumentException(
-          "Each team must contain at least 5 bowlers and all-rounders");
-    }
   }
 }

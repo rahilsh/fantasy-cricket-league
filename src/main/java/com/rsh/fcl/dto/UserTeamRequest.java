@@ -10,8 +10,8 @@ import java.util.List;
 public record UserTeamRequest(
     @NotNull @Positive Long gameId,
     @NotBlank String userName,
-    @NotEmpty @Size(min = 11, max = 11, message = "must contain exactly 11 players")
-    List<@NotBlank String> players,
+    @NotEmpty @Size(min = 11, max = 11, message = "must contain exactly 11 cricketers")
+    List<@NotBlank String> cricketers,
     Double points) {
 
   public double pointsOrDefault() {

@@ -1,10 +1,10 @@
 package com.rsh.fcl.support;
 
-import com.rsh.fcl.dto.PlayerRequest;
+import com.rsh.fcl.model.Cricketer;
+import com.rsh.fcl.model.CricketerType;
 import com.rsh.fcl.model.Game;
-import com.rsh.fcl.model.Player;
-import com.rsh.fcl.model.PlayerType;
 import com.rsh.fcl.model.Team;
+import com.rsh.fcl.model.Tournament;
 import com.rsh.fcl.model.User;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,52 +15,66 @@ public final class TestFixtures {
   private TestFixtures() {
   }
 
-  public static PlayerType typeForOffset(int offset) {
+  public static CricketerType typeForOffset(int offset) {
     if (offset == 0) {
-      return PlayerType.WICKETKEEPER;
+      return CricketerType.WICKETKEEPER;
     }
     if (offset <= 4) {
-      return PlayerType.BOWLER;
+      return CricketerType.BOWLER;
     }
     if (offset <= 7) {
-      return PlayerType.ALLROUNDER;
+      return CricketerType.ALLROUNDER;
     }
-    return PlayerType.BATTER;
+    return CricketerType.BATTER;
   }
 
-  /** Eleven valid player requests (1 WK, 4 bowlers, 3 all-rounders, 3 batters). */
-  public static List<PlayerRequest> playerRequests(String prefix) {
-    List<PlayerRequest> players = new ArrayList<>();
+  public static Cricketer cricketer(String id, CricketerType type) {
+    return new Cricketer(id, "C-" + id, type);
+  }
+
+  /** Cricketer id used by fixtures, e.g. {@code "abc_a1"} for offset 0 of prefix {@code "a"}. */
+  public static String cricketerId(String prefix, int offset) {
+    return "abc_" + prefix + (offset + 1);
+  }
+
+  /** Eleven valid cricketer ids (1 WK, 4 bowlers, 3 all-rounders, 3 batters). */
+  public static List<String> cricketerIds(String prefix) {
+    List<String> ids = new ArrayList<>();
     for (int offset = 0; offset < 11; offset++) {
-      players.add(new PlayerRequest(prefix + " P" + (offset + 1), typeForOffset(offset)));
+      ids.add(cricketerId(prefix, offset));
     }
-    return players;
-  }
-
-  /** Readable player id used by fixtures, e.g. {@code "a1"} for offset 0 of prefix {@code "a"}. */
-  public static String playerId(String prefix, int offset) {
-    return prefix + (offset + 1);
+    return ids;
   }
 
   public static Team team(String name, String idPrefix) {
     Team team = new Team(name);
     for (int offset = 0; offset < 11; offset++) {
-      team.addPlayer(new Player(playerId(idPrefix, offset), name + " P" + (offset + 1),
-          typeForOffset(offset)));
+      team.addCricketer(cricketer(cricketerId(idPrefix, offset), typeForOffset(offset)));
     }
     return team;
   }
 
+  public static Tournament tournament(Long id, String name) {
+    Tournament tournament = new Tournament(name);
+    tournament.setId(id);
+    return tournament;
+  }
+
   /**
-   * A persisted-looking game with two valid 11-player squads. Team Alpha ids are {@code a1..a11}
-   * and Team Beta ids are {@code b1..b11} (offset 0 = WICKETKEEPER, 1-4 = BOWLER, 5-7 = ALLROUNDER,
-   * 8-10 = BATTER).
+   * A persisted-looking game with two valid 11-cricketer squads. Team Alpha ids are
+   * {@code abc_a1..abc_a11} and Team Beta ids are {@code abc_b1..abc_b11} (offset 0 = WICKETKEEPER,
+   * 1-4 = BOWLER, 5-7 = ALLROUNDER, 8-10 = BATTER).
    */
   public static Game game(Long id, int k, int overs) {
-    Game game = new Game(k, overs);
+    Tournament tournament = tournament(1L, "Premier League");
+    Team alpha = team("Team Alpha", "a");
+    alpha.setId(1L);
+    Team beta = team("Team Beta", "b");
+    beta.setId(2L);
+    tournament.addTeam(alpha);
+    tournament.addTeam(beta);
+    Game game = new Game(tournament, alpha, beta, k, overs);
     game.setId(id);
-    game.addTeam(team("Team Alpha", "a"));
-    game.addTeam(team("Team Beta", "b"));
     return game;
   }
 

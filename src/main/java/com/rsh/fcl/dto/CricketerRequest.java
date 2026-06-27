@@ -1,10 +1,10 @@
 package com.rsh.fcl.dto;
 
-import com.rsh.fcl.model.PlayerType;
+import com.rsh.fcl.model.CricketerType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-public record PlayerRequest(
+public record CricketerRequest(
     @NotBlank String name,
-    @NotNull PlayerType type) {
+    @NotNull CricketerType type) {
 }

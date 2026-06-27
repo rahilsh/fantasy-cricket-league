@@ -10,23 +10,26 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.rsh.fcl.model.Cricketer;
+import com.rsh.fcl.model.CricketerType;
 import com.rsh.fcl.model.Game;
-import com.rsh.fcl.model.Player;
-import com.rsh.fcl.model.PlayerType;
 import com.rsh.fcl.model.User;
 import com.rsh.fcl.model.UserTeam;
 import com.rsh.fcl.repository.BallEventRepository;
+import com.rsh.fcl.repository.CricketerRepository;
 import com.rsh.fcl.repository.GameRepository;
-import com.rsh.fcl.repository.PlayerRepository;
+import com.rsh.fcl.repository.TeamRepository;
+import com.rsh.fcl.repository.TournamentRepository;
 import com.rsh.fcl.repository.UserRepository;
 import com.rsh.fcl.repository.UserTeamRepository;
+import com.rsh.fcl.support.TestFixtures;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +45,8 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("test")
 class GameFunctionalTest {
+
+  private static final AtomicInteger CRICKETER_SEQUENCE = new AtomicInteger();
 
   @Autowired
   private MockMvc mockMvc;
@@ -62,14 +67,22 @@ class GameFunctionalTest {
   private GameRepository gameRepository;
 
   @Autowired
-  private PlayerRepository playerRepository;
+  private TeamRepository teamRepository;
+
+  @Autowired
+  private TournamentRepository tournamentRepository;
+
+  @Autowired
+  private CricketerRepository cricketerRepository;
 
   @BeforeEach
   void cleanup() {
     ballEventRepository.deleteAll();
     userTeamRepository.deleteAll();
-    playerRepository.deleteAll();
     gameRepository.deleteAll();
+    teamRepository.deleteAll();
+    tournamentRepository.deleteAll();
+    cricketerRepository.deleteAll();
     userRepository.deleteAll();
   }
 
@@ -92,8 +105,8 @@ class GameFunctionalTest {
 
     mockMvc.perform(get("/api/games/{id}", roster.gameId))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.team1Players", hasSize(11)))
-        .andExpect(jsonPath("$.team2Players", hasSize(11)));
+        .andExpect(jsonPath("$.team1Cricketers", hasSize(11)))
+        .andExpect(jsonPath("$.team2Cricketers", hasSize(11)));
 
     int[][] balls = {
         {0, 11, 6}, {1, 12, -1}, {2, 13, 4}, {3, 14, 2}, {4, 15, 1},
@@ -150,20 +163,18 @@ class GameFunctionalTest {
     Roster roster = createGame("AUS", "ENG", 2, 5);
     mockMvc.perform(put("/api/games/{id}", roster.gameId)
             .contentType(MediaType.APPLICATION_JSON)
-            .content(gameRequestBody("AUS", "NZ", 1, 8)))
+            .content(gameRequestBody(roster.tournamentId, roster.team1Id, roster.team2Id, 1, 8)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.team2").value("NZ"))
         .andExpect(jsonPath("$.k").value(1))
         .andExpect(jsonPath("$.overs").value(8));
 
-    // roster ids are stable across the update, so the captain's XI is still valid
     long userTeamId = createUserTeam(roster.gameId, "captain", roster.validXi(0));
     mockMvc.perform(put("/api/user-teams/{id}", userTeamId)
             .contentType(MediaType.APPLICATION_JSON)
             .content(userTeamBody(roster.gameId, "captain", roster.validXi(2), 9.5)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.points").value(9.5))
-        .andExpect(jsonPath("$.players", hasSize(11)));
+        .andExpect(jsonPath("$.cricketers", hasSize(11)));
 
     mockMvc.perform(delete("/api/user-teams/{id}", userTeamId))
         .andExpect(status().isNoContent());
@@ -171,6 +182,52 @@ class GameFunctionalTest {
         .andExpect(status().isNoContent());
     mockMvc.perform(delete("/api/games/{id}", roster.gameId))
         .andExpect(status().isNoContent());
+  }
+
+  @Test
+  void supportsCricketerAndTeamManagement() throws Exception {
+    long tournamentId = createTournament("Champions Trophy");
+    List<String> alpha = createCricketerSquad();
+    List<String> beta = createCricketerSquad();
+    long teamId = onboardTeam(tournamentId, "Alpha", alpha);
+    onboardTeam(tournamentId, "Beta", beta);
+
+    mockMvc.perform(post("/api/tournaments/{id}/start", tournamentId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+
+    // a free cricketer can replace an existing batter while the tournament is in progress
+    String replacement = createCricketer(CricketerType.BATTER);
+    String outgoing = alpha.get(10);
+    mockMvc.perform(put("/api/teams/{id}/cricketers/{cid}", teamId, outgoing)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"cricketerId\":\"" + replacement + "\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.cricketers", hasSize(11)));
+
+    mockMvc.perform(delete("/api/teams/{id}/cricketers/{cid}", teamId, replacement))
+        .andExpect(status().isNoContent());
+    mockMvc.perform(get("/api/teams/{id}", teamId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.cricketers", hasSize(10)));
+
+    // a cricketer already engaged in this tournament cannot be added to another team
+    mockMvc.perform(post("/api/teams/{id}/cricketers", teamId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"cricketerId\":\"" + beta.get(0) + "\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value(
+            "Cricketer " + beta.get(0) + " is already part of another active tournament"));
+  }
+
+  @Test
+  void rejectsBadCricketerIdFormat() throws Exception {
+    mockMvc.perform(post("/api/cricketers?globalUniqueId=abcd_xy")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"X\",\"type\":\"BATTER\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value(
+            "Cricketer global unique id must match format <3 letters>_<3 letters>"));
   }
 
   @Test
@@ -207,14 +264,8 @@ class GameFunctionalTest {
   void returnsHelpfulErrorsForInvalidRequests() throws Exception {
     mockMvc.perform(post("/api/games")
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"team1\":\"\",\"team2\":\"PAK\",\"k\":0}"))
+            .content("{\"k\":0}"))
         .andExpect(status().isBadRequest());
-
-    mockMvc.perform(post("/api/games")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(gameRequestBody("IND", "PAK", 3, null)))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.message").value("overs must not be null"));
 
     Roster roster = createGame("IND", "PAK", 3, 5);
 
@@ -250,7 +301,7 @@ class GameFunctionalTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(userTeamBody(roster.gameId, "fielder", withBlank, null)))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.message").value("players[0] must not be blank"));
+        .andExpect(jsonPath("$.message").value("cricketers[0] must not be blank"));
 
     List<String> twelve = new ArrayList<>(roster.validXi(0));
     twelve.add(roster.all.get(21));
@@ -258,16 +309,16 @@ class GameFunctionalTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(userTeamBody(roster.gameId, "fielder", twelve, null)))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.message").value("players must contain exactly 11 players"));
+        .andExpect(jsonPath("$.message").value("cricketers must contain exactly 11 cricketers"));
 
     Roster rosterGame = createGame("NZ", "SL", 3, 5);
     List<String> outsideRoster = new ArrayList<>(rosterGame.validXi(0));
-    outsideRoster.set(10, "ghost_player");
+    outsideRoster.set(10, "ghs_ply");
     mockMvc.perform(post("/api/user-teams")
             .contentType(MediaType.APPLICATION_JSON)
             .content(userTeamBody(rosterGame.gameId, "fielder", outsideRoster, null)))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.message").value("Selected players must belong to the game roster"));
+        .andExpect(jsonPath("$.message").value("Selected cricketers must belong to the game roster"));
 
     mockMvc.perform(post("/api/user-teams")
             .contentType(MediaType.APPLICATION_JSON)
@@ -327,10 +378,8 @@ class GameFunctionalTest {
 
   @Test
   void userTeamEqualityUsesGameAndUser() {
-    Game game = new Game(3, 5);
-    game.setId(1L);
-    Game anotherGame = new Game(3, 5);
-    anotherGame.setId(2L);
+    Game game = TestFixtures.game(1L, 3, 5);
+    Game anotherGame = TestFixtures.game(2L, 3, 5);
     User user = new User("user1");
     user.setId(1L);
     User sameUserId = new User("user1-renamed");
@@ -338,14 +387,14 @@ class GameFunctionalTest {
     User anotherUser = new User("user1");
     anotherUser.setId(2L);
 
-    Set<Player> players = new LinkedHashSet<>();
-    players.add(new Player("brave_lion", "player1", PlayerType.BATTER));
-    players.add(new Player("calm_otter", "player2", PlayerType.BOWLER));
+    Set<Cricketer> cricketers = new LinkedHashSet<>();
+    cricketers.add(new Cricketer("abc_lio", "player1", CricketerType.BATTER));
+    cricketers.add(new Cricketer("cot_ter", "player2", CricketerType.BOWLER));
 
-    UserTeam userTeam = new UserTeam(game, user, players);
-    UserTeam sameUserTeam = new UserTeam(game, sameUserId, players);
-    UserTeam differentUserTeam = new UserTeam(game, anotherUser, players);
-    UserTeam differentGameTeam = new UserTeam(anotherGame, user, players);
+    UserTeam userTeam = new UserTeam(game, user, cricketers);
+    UserTeam sameUserTeam = new UserTeam(game, sameUserId, cricketers);
+    UserTeam differentUserTeam = new UserTeam(game, anotherUser, cricketers);
+    UserTeam differentGameTeam = new UserTeam(anotherGame, user, cricketers);
 
     assertEquals(userTeam, sameUserTeam);
     assertEquals(userTeam.hashCode(), sameUserTeam.hashCode());
@@ -422,15 +471,59 @@ class GameFunctionalTest {
 
   // ---- helpers ----
 
+  /** Bootstraps a tournament with two onboarded teams and a game between them. */
   private Roster createGame(String team1, String team2, int k, int overs) throws Exception {
+    long tournamentId = createTournament(team1 + " vs " + team2);
+    long team1Id = onboardTeam(tournamentId, team1, createCricketerSquad());
+    long team2Id = onboardTeam(tournamentId, team2, createCricketerSquad());
     String json = mockMvc.perform(post("/api/games")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(gameRequestBody(team1, team2, k, overs)))
+            .content(gameRequestBody(tournamentId, team1Id, team2Id, k, overs)))
         .andExpect(status().isCreated())
         .andReturn()
         .getResponse()
         .getContentAsString();
-    return Roster.from(objectMapper.readTree(json));
+    return Roster.from(objectMapper.readTree(json), tournamentId, team1Id, team2Id);
+  }
+
+  private long createTournament(String name) throws Exception {
+    return idFrom(mockMvc.perform(post("/api/tournaments")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"" + name + "\"}"))
+        .andExpect(status().isCreated())
+        .andReturn()
+        .getResponse()
+        .getContentAsString());
+  }
+
+  /** Creates 11 cricketers (1 WK, 4 bowlers, 3 all-rounders, 3 batters) and returns their ids. */
+  private List<String> createCricketerSquad() throws Exception {
+    List<String> ids = new ArrayList<>();
+    for (int offset = 0; offset < 11; offset++) {
+      ids.add(createCricketer(typeForOffset(offset)));
+    }
+    return ids;
+  }
+
+  private String createCricketer(CricketerType type) throws Exception {
+    String id = nextCricketerId();
+    mockMvc.perform(post("/api/cricketers?globalUniqueId={id}", id)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"C-" + id + "\",\"type\":\"" + type + "\"}"))
+        .andExpect(status().isCreated());
+    return id;
+  }
+
+  private long onboardTeam(long tournamentId, String name, List<String> cricketerIds)
+      throws Exception {
+    String body = "{\"name\":\"" + name + "\",\"cricketers\":" + jsonArray(cricketerIds) + "}";
+    return idFrom(mockMvc.perform(post("/api/tournaments/{id}/teams", tournamentId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body))
+        .andExpect(status().isCreated())
+        .andReturn()
+        .getResponse()
+        .getContentAsString());
   }
 
   private long createUser(String userName) throws Exception {
@@ -443,10 +536,11 @@ class GameFunctionalTest {
         .getContentAsString());
   }
 
-  private long createUserTeam(long gameId, String userName, List<String> players) throws Exception {
+  private long createUserTeam(long gameId, String userName, List<String> cricketers)
+      throws Exception {
     return idFrom(mockMvc.perform(post("/api/user-teams")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(userTeamBody(gameId, userName, players, null)))
+            .content(userTeamBody(gameId, userName, cricketers, null)))
         .andExpect(status().isCreated())
         .andReturn()
         .getResponse()
@@ -464,34 +558,20 @@ class GameFunctionalTest {
     return objectMapper.readTree(json).get("id").asLong();
   }
 
-  private String gameRequestBody(String team1, String team2, Integer k, Integer overs) {
-    StringBuilder builder = new StringBuilder();
-    builder.append("{\"team1\":\"").append(team1)
-        .append("\",\"team2\":\"").append(team2)
-        .append("\",\"k\":").append(k);
+  private String gameRequestBody(long tournamentId, long team1Id, long team2Id, Integer k,
+      Integer overs) {
+    StringBuilder builder = new StringBuilder("{\"tournamentId\":").append(tournamentId)
+        .append(",\"team1Id\":").append(team1Id)
+        .append(",\"team2Id\":").append(team2Id)
+        .append(",\"k\":").append(k);
     builder.append(overs == null ? ",\"overs\":null" : ",\"overs\":" + overs);
-    builder.append(",\"team1Players\":").append(playersJson(team1))
-        .append(",\"team2Players\":").append(playersJson(team2))
-        .append("}");
-    return builder.toString();
+    return builder.append('}').toString();
   }
 
-  private String playersJson(String teamName) {
-    StringBuilder builder = new StringBuilder("[");
-    for (int i = 0; i < 11; i++) {
-      if (i > 0) {
-        builder.append(',');
-      }
-      builder.append("{\"name\":\"").append(teamName).append("-").append(i + 1)
-          .append("\",\"type\":\"").append(playerType(i)).append("\"}");
-    }
-    return builder.append(']').toString();
-  }
-
-  private String userTeamBody(long gameId, String userName, List<String> players, Double points) {
+  private String userTeamBody(long gameId, String userName, List<String> cricketers, Double points) {
     StringBuilder builder = new StringBuilder("{\"gameId\":").append(gameId)
         .append(",\"userName\":\"").append(userName)
-        .append("\",\"players\":").append(jsonArray(players));
+        .append("\",\"cricketers\":").append(jsonArray(cricketers));
     if (points != null) {
       builder.append(",\"points\":").append(points);
     }
@@ -514,17 +594,28 @@ class GameFunctionalTest {
     return builder.append(']').toString();
   }
 
-  private static String playerType(int offset) {
+  private static CricketerType typeForOffset(int offset) {
     if (offset == 0) {
-      return "WICKETKEEPER";
+      return CricketerType.WICKETKEEPER;
     }
     if (offset <= 4) {
-      return "BOWLER";
+      return CricketerType.BOWLER;
     }
     if (offset <= 7) {
-      return "ALLROUNDER";
+      return CricketerType.ALLROUNDER;
     }
-    return "BATTER";
+    return CricketerType.BATTER;
+  }
+
+  /** Unique {@code xxx_xxx} cricketer id derived from a monotonically increasing counter. */
+  private static String nextCricketerId() {
+    int n = CRICKETER_SEQUENCE.getAndIncrement();
+    char[] letters = new char[6];
+    for (int i = 5; i >= 0; i--) {
+      letters[i] = (char) ('a' + (n % 26));
+      n /= 26;
+    }
+    return new String(letters, 0, 3) + "_" + new String(letters, 3, 3);
   }
 
   private static Map<String, Double> newScore(Set<String> users) {
@@ -560,27 +651,33 @@ class GameFunctionalTest {
   /** Captures a created game's roster so tests can build valid (and invalid) selections. */
   private static final class Roster {
     private final long gameId;
+    private final long tournamentId;
+    private final long team1Id;
+    private final long team2Id;
     private final List<String> all = new ArrayList<>();
     private final List<String> wicketkeepers = new ArrayList<>();
     private final List<String> pacemen = new ArrayList<>();
     private final List<String> batters = new ArrayList<>();
 
-    private Roster(long gameId) {
+    private Roster(long gameId, long tournamentId, long team1Id, long team2Id) {
       this.gameId = gameId;
+      this.tournamentId = tournamentId;
+      this.team1Id = team1Id;
+      this.team2Id = team2Id;
     }
 
-    static Roster from(JsonNode game) {
-      Roster roster = new Roster(game.get("id").asLong());
-      roster.ingest(game.get("team1Players"));
-      roster.ingest(game.get("team2Players"));
+    static Roster from(JsonNode game, long tournamentId, long team1Id, long team2Id) {
+      Roster roster = new Roster(game.get("id").asLong(), tournamentId, team1Id, team2Id);
+      roster.ingest(game.get("team1Cricketers"));
+      roster.ingest(game.get("team2Cricketers"));
       return roster;
     }
 
-    private void ingest(JsonNode players) {
-      for (JsonNode player : players) {
-        String id = player.get("globalUniqueId").asString();
+    private void ingest(JsonNode cricketers) {
+      for (JsonNode cricketer : cricketers) {
+        String id = cricketer.get("globalUniqueId").asString();
         all.add(id);
-        switch (player.get("type").asString()) {
+        switch (cricketer.get("type").asString()) {
           case "WICKETKEEPER" -> wicketkeepers.add(id);
           case "BOWLER", "ALLROUNDER" -> pacemen.add(id);
           default -> batters.add(id);

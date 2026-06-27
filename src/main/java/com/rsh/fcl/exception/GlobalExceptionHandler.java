@@ -13,13 +13,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
   @ExceptionHandler({GameNotFoundException.class, ResourceNotFoundException.class,
-      UserTeamNotFoundForGameException.class, UserNotFoundException.class})
+      UserTeamNotFoundForGameException.class, UserNotFoundException.class,
+      CricketerNotFoundException.class})
   public ResponseEntity<ErrorResponse> handleNotFound(RuntimeException exception) {
     return error(HttpStatus.NOT_FOUND, exception.getMessage());
   }
 
   @ExceptionHandler({GameAlreadyCompletedException.class, GameNotStartedException.class,
       BallEventNotSupportedException.class, UserTeamExistsException.class,
+      CricketerExistsException.class,
       IllegalArgumentException.class})
   public ResponseEntity<ErrorResponse> handleBadRequest(RuntimeException exception) {
     return error(HttpStatus.BAD_REQUEST, exception.getMessage());

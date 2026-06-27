@@ -37,7 +37,7 @@ public class UserTeamController {
       Authentication authentication) {
     String effectiveUserName = isSuperadmin(authentication) ? request.userName() : authentication.getName();
     UserTeamResponse response = DtoMapper.toUserTeamResponse(
-        userTeamService.createTeamForUser(request.gameId(), request.players(), effectiveUserName));
+        userTeamService.createTeamForUser(request.gameId(), request.cricketers(), effectiveUserName));
     return ResponseEntity.created(URI.create("/api/user-teams/" + response.id())).body(response);
   }
 
@@ -78,7 +78,7 @@ public class UserTeamController {
         ? request.pointsOrDefault()
         : userTeamService.getUserTeamForUser(id, effectiveUserName).getPoints();
     return DtoMapper.toUserTeamResponse(userTeamService.updateUserTeam(id, request.gameId(),
-        request.players(), effectiveUserName, effectivePoints));
+        request.cricketers(), effectiveUserName, effectivePoints));
   }
 
   @DeleteMapping("/{id}")

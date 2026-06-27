@@ -17,6 +17,258 @@ paths:
       responses:
         '200':
           description: Auth token
+  /cricketers:
+    get:
+      summary: List cricketers (any authenticated user)
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: sort
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged cricketers response
+    post:
+      summary: Create a cricketer with a client-supplied id (superadmin only)
+      parameters:
+        - in: query
+          name: globalUniqueId
+          required: true
+          description: Globally unique id in <3 letters>_<3 letters> format, e.g. abc_xyz
+          schema:
+            type: string
+            pattern: '^[a-zA-Z]{3}_[a-zA-Z]{3}$'
+      responses:
+        '201':
+          description: Created
+  /cricketers/{globalUniqueId}:
+    get:
+      summary: Get a cricketer
+      parameters:
+        - in: path
+          name: globalUniqueId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cricketer
+    put:
+      summary: Update a cricketer (superadmin only)
+      parameters:
+        - in: path
+          name: globalUniqueId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Updated
+    delete:
+      summary: Delete a cricketer (superadmin only)
+      parameters:
+        - in: path
+          name: globalUniqueId
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+  /tournaments:
+    get:
+      summary: List tournaments (superadmin only)
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: sort
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged tournaments response
+    post:
+      summary: Create a tournament (superadmin only)
+      responses:
+        '201':
+          description: Created
+  /tournaments/{id}:
+    get:
+      summary: Get a tournament
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Tournament
+    put:
+      summary: Update a tournament (superadmin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Updated
+    delete:
+      summary: Delete a tournament (superadmin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Deleted
+  /tournaments/{id}/start:
+    post:
+      summary: Start a tournament (superadmin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Tournament in progress
+  /tournaments/{id}/end:
+    post:
+      summary: End a tournament (superadmin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Tournament completed
+  /tournaments/{id}/teams:
+    post:
+      summary: Onboard a team of 11 cricketers (by id) into the tournament (superadmin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '201':
+          description: Created
+  /teams:
+    get:
+      summary: List teams (superadmin only)
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: sort
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paged teams response
+  /teams/{id}:
+    get:
+      summary: Get a team
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Team
+  /teams/{id}/cricketers:
+    post:
+      summary: Add a cricketer to a team (superadmin only; tournament in progress, no live match)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Updated team
+  /teams/{id}/cricketers/{cricketerId}:
+    put:
+      summary: Replace a cricketer in a team (superadmin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: path
+          name: cricketerId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Updated team
+    delete:
+      summary: Remove a cricketer from a team (superadmin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: path
+          name: cricketerId
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Removed
   /games:
     get:
       summary: List games
@@ -39,7 +291,7 @@ paths:
         '200':
           description: Paged games response
     post:
-      summary: Create game with 11 players per side (auto-completes after overs*6 balls or 10 wickets)
+      summary: Create a game between two team ids of a tournament (superadmin only; auto-completes after overs*6 balls or 10 wickets)
       responses:
         '201':
           description: Created
@@ -96,7 +348,7 @@ paths:
         '200':
           description: Paged user teams response
     post:
-      summary: Create user team with exactly 11 players from the game roster
+      summary: Create user team with exactly 11 cricketers from the game roster
       responses:
         '201':
           description: Created

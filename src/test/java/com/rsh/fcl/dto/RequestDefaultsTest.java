@@ -9,13 +9,13 @@ class RequestDefaultsTest {
 
   @Test
   void topKDefaultsToThreeWhenNull() {
-    GameRequest request = new GameRequest("A", "B", null, 5, List.of(), List.of());
+    GameRequest request = new GameRequest(1L, 1L, 2L, null, 5);
     assertThat(request.topKOrDefault()).isEqualTo(3);
   }
 
   @Test
   void topKUsesProvidedValue() {
-    GameRequest request = new GameRequest("A", "B", 7, 5, List.of(), List.of());
+    GameRequest request = new GameRequest(1L, 1L, 2L, 7, 5);
     assertThat(request.topKOrDefault()).isEqualTo(7);
   }
 

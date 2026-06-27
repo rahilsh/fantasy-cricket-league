@@ -1,35 +1,52 @@
 package com.rsh.fcl.mapper;
 
+import com.rsh.fcl.dto.BallEventResponse;
+import com.rsh.fcl.dto.CricketerResponse;
 import com.rsh.fcl.dto.GameResponse;
 import com.rsh.fcl.dto.LeaderboardEntry;
-import com.rsh.fcl.dto.BallEventResponse;
-import com.rsh.fcl.dto.PlayerResponse;
-import com.rsh.fcl.model.BallEvent;
+import com.rsh.fcl.dto.TeamResponse;
+import com.rsh.fcl.dto.TournamentResponse;
 import com.rsh.fcl.dto.UserResponse;
 import com.rsh.fcl.dto.UserTeamResponse;
+import com.rsh.fcl.model.BallEvent;
+import com.rsh.fcl.model.Cricketer;
 import com.rsh.fcl.model.Game;
-import com.rsh.fcl.model.Player;
 import com.rsh.fcl.model.Team;
+import com.rsh.fcl.model.Tournament;
 import com.rsh.fcl.model.User;
 import com.rsh.fcl.model.UserTeam;
-import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public final class DtoMapper {
 
   private DtoMapper() {
   }
 
+  public static CricketerResponse toCricketerResponse(Cricketer cricketer) {
+    return new CricketerResponse(cricketer.getGlobalUniqueId(), cricketer.getName(),
+        cricketer.getType());
+  }
+
+  public static TeamResponse toTeamResponse(Team team) {
+    return new TeamResponse(team.getId(), team.getName(), team.getTournament().getId(),
+        toCricketers(team.getCricketers()));
+  }
+
+  public static TournamentResponse toTournamentResponse(Tournament tournament) {
+    return new TournamentResponse(tournament.getId(), tournament.getName(), tournament.getStatus(),
+        tournament.getTeams().stream().map(DtoMapper::toTeamResponse).toList());
+  }
+
   public static GameResponse toGameResponse(Game game) {
-    List<Team> teams = new ArrayList<>(game.getTeams());
-    Team team1 = teams.get(0);
-    Team team2 = teams.get(1);
-    return new GameResponse(game.getId(), team1.getName(), team2.getName(), game.getStatus(),
-        game.getK(), game.getOvers(), game.getBallsBowled(), game.getWickets(),
-        toPlayers(team1.getPlayers()),
-        toPlayers(team2.getPlayers()));
+    Team team1 = game.getTeam1();
+    Team team2 = game.getTeam2();
+    return new GameResponse(game.getId(), game.getTournament().getId(), team1.getId(), team2.getId(),
+        team1.getName(), team2.getName(), game.getStatus(), game.getK(), game.getOvers(),
+        game.getBallsBowled(), game.getWickets(),
+        toCricketers(team1.getCricketers()), toCricketers(team2.getCricketers()));
   }
 
   public static UserResponse toUserResponse(User user) {
@@ -38,7 +55,7 @@ public final class DtoMapper {
 
   public static UserTeamResponse toUserTeamResponse(UserTeam userTeam) {
     return new UserTeamResponse(userTeam.getId(), userTeam.getGame().getId(),
-        userTeam.getUserName(), userTeam.getPoints(), toPlayerIds(userTeam.getPlayers()));
+        userTeam.getUserName(), userTeam.getPoints(), toCricketerIds(userTeam.getCricketers()));
   }
 
   public static BallEventResponse toBallEventResponse(BallEvent ballEvent) {
@@ -50,16 +67,15 @@ public final class DtoMapper {
     return new LeaderboardEntry(userTeam.getUserName(), userTeam.getPoints());
   }
 
-  private static List<PlayerResponse> toPlayers(Set<Player> players) {
-    return players.stream()
-        .map(player -> new PlayerResponse(player.getGlobalUniqueId(), player.getName(),
-            player.getType()))
+  private static List<CricketerResponse> toCricketers(Collection<Cricketer> cricketers) {
+    return cricketers.stream()
+        .map(DtoMapper::toCricketerResponse)
         .toList();
   }
 
-  private static Set<String> toPlayerIds(Set<Player> players) {
-    return players.stream()
-        .map(Player::getGlobalUniqueId)
-        .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+  private static Set<String> toCricketerIds(Collection<Cricketer> cricketers) {
+    return cricketers.stream()
+        .map(Cricketer::getGlobalUniqueId)
+        .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
   }
 }

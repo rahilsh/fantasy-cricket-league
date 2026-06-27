@@ -43,12 +43,12 @@ class UserTeamServiceTest {
     userTeamService = new UserTeamService(userTeamRepository, gameRepository, userRepository);
   }
 
-  // Fixture roster ids: team Alpha a1..a11, team Beta b1..b11.
+  // Fixture roster ids: team Alpha abc_a1..abc_a11, team Beta abc_b1..abc_b11.
   // offset 0 = WICKETKEEPER, 1-4 = BOWLER, 5-7 = ALLROUNDER, 8-10 = BATTER.
   private List<String> validSelection() {
     // WK a1 + bowlers a2,a3,a4,a5 + allrounder a6 + batters a9,a10,a11 + b1(WK) + b6(allrounder)
-    return new ArrayList<>(List.of("a1", "a2", "a3", "a4", "a5", "a6", "a9", "a10", "a11", "b1",
-        "b6"));
+    return new ArrayList<>(List.of("abc_a1", "abc_a2", "abc_a3", "abc_a4", "abc_a5", "abc_a6", "abc_a9", "abc_a10", "abc_a11", "abc_b1",
+        "abc_b6"));
   }
 
   private void stubGameAndUser(Game game, User user) {
@@ -67,7 +67,7 @@ class UserTeamServiceTest {
 
     UserTeam team = userTeamService.createTeamForUser(1L, validSelection(), "bob");
 
-    assertThat(team.getPlayers()).hasSize(11);
+    assertThat(team.getCricketers()).hasSize(11);
   }
 
   @Test
@@ -116,7 +116,7 @@ class UserTeamServiceTest {
     ten.remove(0);
     assertThatThrownBy(() -> userTeamService.createTeamForUser(1L, ten, "bob"))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("exactly 11 players");
+        .hasMessageContaining("exactly 11 cricketers");
   }
 
   @Test
@@ -139,7 +139,7 @@ class UserTeamServiceTest {
     stubGameAndUser(game, user);
     when(userTeamRepository.existsByGameIdAndUser_UserName(1L, "bob")).thenReturn(false);
     List<String> selection =
-        new ArrayList<>(List.of("a1", "a2", "a3", "a4", "a5", "a6", "a9", "a10", "a11", "b1", "b1"));
+        new ArrayList<>(List.of("abc_a1", "abc_a2", "abc_a3", "abc_a4", "abc_a5", "abc_a6", "abc_a9", "abc_a10", "abc_a11", "abc_b1", "abc_b1"));
     assertThatThrownBy(() -> userTeamService.createTeamForUser(1L, selection, "bob"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("belong to the game roster");
@@ -152,8 +152,8 @@ class UserTeamServiceTest {
     stubGameAndUser(game, user);
     when(userTeamRepository.existsByGameIdAndUser_UserName(1L, "bob")).thenReturn(false);
     // a2-a11 (no wicketkeeper) + b2; bowlers/all-rounders present but no WK
-    List<String> noKeeper = new ArrayList<>(List.of("a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9",
-        "a10", "a11", "b2"));
+    List<String> noKeeper = new ArrayList<>(List.of("abc_a2", "abc_a3", "abc_a4", "abc_a5", "abc_a6", "abc_a7", "abc_a8", "abc_a9",
+        "abc_a10", "abc_a11", "abc_b2"));
     assertThatThrownBy(() -> userTeamService.createTeamForUser(1L, noKeeper, "bob"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("at least one wicketkeeper");
@@ -166,8 +166,8 @@ class UserTeamServiceTest {
     stubGameAndUser(game, user);
     when(userTeamRepository.existsByGameIdAndUser_UserName(1L, "bob")).thenReturn(false);
     // 2 WK (a1,b1) + 6 batters (a9,a10,a11,b9,b10,b11) + 3 bowlers (a2,a3,a4) -> only 3 pace
-    List<String> batsmanHeavy = new ArrayList<>(List.of("a1", "b1", "a9", "a10", "a11", "b9", "b10",
-        "b11", "a2", "a3", "a4"));
+    List<String> batsmanHeavy = new ArrayList<>(List.of("abc_a1", "abc_b1", "abc_a9", "abc_a10", "abc_a11", "abc_b9", "abc_b10",
+        "abc_b11", "abc_a2", "abc_a3", "abc_a4"));
     assertThatThrownBy(() -> userTeamService.createTeamForUser(1L, batsmanHeavy, "bob"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("at least 5 bowlers and all-rounders");

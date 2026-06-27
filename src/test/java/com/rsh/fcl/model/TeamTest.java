@@ -7,14 +7,15 @@ import org.junit.jupiter.api.Test;
 class TeamTest {
 
   @Test
-  void addPlayerSetsBackReferenceAndStoresPlayer() {
+  void addCricketerStoresCricketer() {
     Team team = new Team("Team Alpha");
-    Player player = new Player("a1", "Alice", PlayerType.BATTER);
+    Cricketer cricketer = new Cricketer("abc_xyz", "Alice", CricketerType.BATTER);
 
-    team.addPlayer(player);
+    team.addCricketer(cricketer);
 
-    assertThat(team.getPlayers()).containsExactly(player);
-    assertThat(player.getTeam()).isSameAs(team);
+    assertThat(team.getCricketers()).containsExactly(cricketer);
+    assertThat(team.hasCricketer("abc_xyz")).isTrue();
+    assertThat(team.hasCricketer("zzz_zzz")).isFalse();
   }
 
   @Test

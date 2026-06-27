@@ -7,5 +7,5 @@ public record UserTeamResponse(
     Long gameId,
     String userName,
     double points,
-    Set<String> players) {
+    Set<String> cricketers) {
 }

@@ -1,13 +1,13 @@
 package com.rsh.fcl.controller;
 
-import com.rsh.fcl.model.BallEvent;
 import com.rsh.fcl.dto.BallEventResponse;
-import com.rsh.fcl.service.GameService;
 import com.rsh.fcl.dto.GameRequest;
 import com.rsh.fcl.dto.GameResponse;
 import com.rsh.fcl.dto.LeaderboardEntry;
 import com.rsh.fcl.dto.PlayRequest;
 import com.rsh.fcl.mapper.DtoMapper;
+import com.rsh.fcl.model.BallEvent;
+import com.rsh.fcl.service.GameService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -37,8 +37,8 @@ public class GameController {
   @PostMapping
   public ResponseEntity<GameResponse> createGame(@Valid @RequestBody GameRequest request) {
     GameResponse response = DtoMapper.toGameResponse(
-        gameService.createGame(request.team1(), request.team2(), request.topKOrDefault(),
-            request.overs(), request.team1Players(), request.team2Players()));
+        gameService.createGame(request.tournamentId(), request.team1Id(), request.team2Id(),
+            request.topKOrDefault(), request.overs()));
     return ResponseEntity.created(URI.create("/api/games/" + response.id())).body(response);
   }
 
@@ -55,8 +55,8 @@ public class GameController {
   @PutMapping("/{id}")
   public GameResponse updateGame(@PathVariable long id, @Valid @RequestBody GameRequest request) {
     return DtoMapper.toGameResponse(
-        gameService.updateGame(id, request.team1(), request.team2(), request.topKOrDefault(),
-            request.overs(), request.team1Players(), request.team2Players()));
+        gameService.updateGame(id, request.tournamentId(), request.team1Id(), request.team2Id(),
+            request.topKOrDefault(), request.overs()));
   }
 
   @DeleteMapping("/{id}")

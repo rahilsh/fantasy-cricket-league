@@ -5,20 +5,39 @@ recording ball events, and viewing the top-K fantasy leaderboard.
 
 ## Game Rules
 
-- **Players** are predefined entities, each with a globally unique id, a name,
-  and a `type` of `BATTER`, `BOWLER`, `ALLROUNDER`, or `WICKETKEEPER`. A player
-  can only belong to one active game at a time.
-- **A game** owns two **teams**, and each team has exactly **11 players**, for a
-  22-player roster per game. The game references players only through its teams.
-- **A user team** is a fantasy XI picked from that game's 22-player roster and
-  must contain exactly **11 players**, selected subject to these constraints:
+- **Cricketers** are standalone, predefined reference entities. Each cricketer is
+  created with a client-supplied **globally unique id** in the
+  `<3 letters>_<3 letters>` format (for example `abc_xyz`), a `name`, and a
+  `type` of `BATTER`, `BOWLER`, `ALLROUNDER`, or `WICKETKEEPER`. Cricketers are
+  not tied to any tournament, team, or game in their own table; the link is
+  established when they are onboarded into a team.
+- **A tournament** is the parent entity with its own lifecycle status
+  (`CREATED` → `IN_PROGRESS` → `COMPLETED`). Teams and games belong to a
+  tournament; cricketers do not.
+- **A team** belongs to exactly one tournament and has exactly **11 cricketers**.
+  Every team squad must satisfy the composition rule:
   - at least **one WICKETKEEPER**;
-  - at least **five** players that are `BOWLER` or `ALLROUNDER` combined.
-- **Ball events** record a batsman, a bowler (by player id), and an outcome.
+  - at least **five** cricketers that are `BOWLER` or `ALLROUNDER` combined.
+  A cricketer can be part of only **one active (non-completed) tournament** at a
+  time. While a tournament is `IN_PROGRESS`, a team's cricketers can be
+  added/replaced/removed, but **not while one of the team's matches is in
+  progress**.
+- **A game** belongs to a tournament and is played between **two teams** of that
+  tournament, referenced by their **team ids**. A game therefore has a 22-cricketer
+  roster (11 per team) and references cricketers only through its two teams. A team
+  can play at most one game at a time.
+- **A user team** is a fantasy XI picked from a game's 22-cricketer roster and
+  must contain exactly **11 cricketers**, selected subject to these constraints:
+  - at least **one WICKETKEEPER**;
+  - at least **five** cricketers that are `BOWLER` or `ALLROUNDER` combined.
+- **Ball events** record a batsman, a bowler (by cricketer id), and an outcome.
   Run outcomes (`1`, `2`, `4`, `6`) and wickets (`-1`) score fantasy points for
-  the user teams that own the involved players.
+  the user teams that own the involved cricketers.
 - **A game auto-ends** once all overs are bowled or 10 wickets fall, whichever
   comes first, after which the top-K **leaderboard** is finalised.
+- **Access control**: Tournament, Cricketer (writes), Team, and Game APIs are
+  **superadmin-only**. Authenticated users can read cricketers, read games and
+  leaderboards, and manage their own user teams.
 
 ## Tech Stack
 
@@ -81,7 +100,7 @@ Or build and run the jar:
 
 ```bash
 mvn verify
-java -jar target/fcl-1.0-SNAPSHOT.jar
+java -jar target/fantasy-cricket-league-1.0-SNAPSHOT.jar
 ```
 
 The REST API is available at `http://localhost:8080/api`. A static OpenAPI
@@ -90,11 +109,12 @@ document is served at `http://localhost:8080/openapi.yaml`.
 ## Simulate A Game
 
 `scripts/simulate_game.py` drives a full game through the REST API: it logs in as
-superadmin, creates a game with a fixed number of overs, signs up users with
-teams, starts the game, and records one random ball event per delivery. The game
-**auto-completes once all overs are bowled (6 balls per over) or 10 wickets
-fall**, whichever comes first, after which the script prints the winner with
-their players.
+superadmin, creates 22 cricketers, creates a tournament, onboards two teams of 11
+cricketers each, starts the tournament, creates a game between the two teams,
+signs up users (`player1`, `player2`, ...) with valid XIs, starts the game, and
+records one random ball event per delivery. The game **auto-completes once all
+overs are bowled (6 balls per over) or 10 wickets fall**, whichever comes first,
+after which the script prints the winner with their cricketers.
 
 ```bash
 # Start the app first (mvn spring-boot:run), then:
@@ -112,7 +132,7 @@ Configure via environment variables: `BASE_URL` (default
 mvn verify
 ```
 
-This runs unit/functional tests and enforces the 80% JaCoCo coverage rule.
+This runs unit/functional tests and enforces the 85% JaCoCo coverage rule.
 
 ## REST APIs
 
@@ -145,8 +165,9 @@ JWT signing secret is configured by `FCL_SECURITY_JWT_SECRET`.
 
 There are two roles: `USER` and `SUPERADMIN`. Normal users self-sign up through
 `POST /api/auth/signup`. The superadmin logs in with the static credentials
-above. Superadmins create/start/end games and record ball events; users manage
-their own team and read games and leaderboards.
+above. Superadmins manage tournaments, cricketers, teams and games (create teams,
+onboard squads, create/start/end games, record ball events); users read
+cricketers, games and leaderboards and manage their own user team.
 
 Observability endpoints (auth required):
 
@@ -164,6 +185,82 @@ A static OpenAPI document is available at:
 http://localhost:8080/openapi.yaml
 ```
 
+### Cricketers
+
+- `POST /cricketers?globalUniqueId=<abc_xyz>`
+- `GET /cricketers`
+- `GET /cricketers/{globalUniqueId}`
+- `PUT /cricketers/{globalUniqueId}`
+- `DELETE /cricketers/{globalUniqueId}`
+
+Create a cricketer (the id is supplied as a query parameter in the
+`<3 letters>_<3 letters>` format):
+
+```bash
+curl -X POST 'http://localhost:8080/api/cricketers?globalUniqueId=abc_xyz' \
+  -H "Authorization: Bearer <admin_token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Virat","type":"BATTER"}'
+```
+
+Cricketer writes are superadmin-only; any authenticated user can read cricketers.
+
+### Tournaments
+
+- `POST /tournaments`
+- `GET /tournaments`
+- `GET /tournaments/{id}`
+- `PUT /tournaments/{id}`
+- `DELETE /tournaments/{id}`
+- `POST /tournaments/{id}/start`
+- `POST /tournaments/{id}/end`
+- `POST /tournaments/{id}/teams`  (onboard a team)
+
+Create a tournament and onboard a team of 11 cricketers (by id):
+
+```bash
+curl -X POST http://localhost:8080/api/tournaments \
+  -H "Authorization: Bearer <admin_token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Champions Trophy"}'
+
+curl -X POST http://localhost:8080/api/tournaments/1/teams \
+  -H "Authorization: Bearer <admin_token>" \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "name": "IND",
+        "cricketers": ["abc_wki","abc_bo1","abc_bo2","abc_bo3","abc_bo4",
+                        "abc_ar1","abc_ar2","abc_ar3","abc_ba1","abc_ba2","abc_ba3"]
+      }'
+
+curl -X POST http://localhost:8080/api/tournaments/1/start \
+  -H "Authorization: Bearer <admin_token>"
+```
+
+Each onboarded team must have exactly **11 cricketers** satisfying the squad
+composition rule (≥1 WICKETKEEPER, ≥5 BOWLER+ALLROUNDER). A cricketer can only be
+part of one active (non-completed) tournament. Tournament and team APIs are
+superadmin-only.
+
+### Teams
+
+- `GET /teams`
+- `GET /teams/{id}`
+- `POST /teams/{id}/cricketers`                  (add a cricketer)
+- `PUT /teams/{id}/cricketers/{cricketerId}`     (replace a cricketer)
+- `DELETE /teams/{id}/cricketers/{cricketerId}`  (remove a cricketer)
+
+Teams are created via `POST /tournaments/{id}/teams`. While the tournament is
+`IN_PROGRESS`, a team's cricketers can be added/replaced/removed — but **not while
+one of the team's matches is in progress**.
+
+```bash
+curl -X PUT http://localhost:8080/api/teams/1/cricketers/abc_ba3 \
+  -H "Authorization: Bearer <admin_token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"cricketerId":"abc_ba9"}'
+```
+
 ### Games
 
 - `POST /games`
@@ -176,56 +273,27 @@ http://localhost:8080/openapi.yaml
 - `POST /games/{id}/plays`
 - `GET /games/{id}/leaderboard`
 
-Create a game:
+Create a game between two teams of a tournament, referenced by their **team ids**:
 
 ```bash
 curl -X POST http://localhost:8080/api/games \
   -H "Authorization: Bearer <admin_token>" \
   -H 'Content-Type: application/json' \
   -d '{
-        "team1": "IND",
-        "team2": "PAK",
+        "tournamentId": 1,
+        "team1Id": 1,
+        "team2Id": 2,
         "k": 5,
-        "overs": 20,
-        "team1Players": [
-          {"name": "IND P1",  "type": "WICKETKEEPER"},
-          {"name": "IND P2",  "type": "BOWLER"},
-          {"name": "IND P3",  "type": "BOWLER"},
-          {"name": "IND P4",  "type": "BOWLER"},
-          {"name": "IND P5",  "type": "BOWLER"},
-          {"name": "IND P6",  "type": "ALLROUNDER"},
-          {"name": "IND P7",  "type": "ALLROUNDER"},
-          {"name": "IND P8",  "type": "ALLROUNDER"},
-          {"name": "IND P9",  "type": "BATTER"},
-          {"name": "IND P10", "type": "BATTER"},
-          {"name": "IND P11", "type": "BATTER"}
-        ],
-        "team2Players": [
-          {"name": "PAK P1",  "type": "WICKETKEEPER"},
-          {"name": "PAK P2",  "type": "BOWLER"},
-          {"name": "PAK P3",  "type": "BOWLER"},
-          {"name": "PAK P4",  "type": "BOWLER"},
-          {"name": "PAK P5",  "type": "BOWLER"},
-          {"name": "PAK P6",  "type": "ALLROUNDER"},
-          {"name": "PAK P7",  "type": "ALLROUNDER"},
-          {"name": "PAK P8",  "type": "ALLROUNDER"},
-          {"name": "PAK P9",  "type": "BATTER"},
-          {"name": "PAK P10", "type": "BATTER"},
-          {"name": "PAK P11", "type": "BATTER"}
-        ]
+        "overs": 20
       }'
 ```
 
-Each game requires exactly **11 players per team** (22 total). A player request
-carries only a `name` and a `type` of `BATTER`, `BOWLER`, `ALLROUNDER`, or
-`WICKETKEEPER`. The server assigns each player a **readable, globally unique
-string id** (e.g. `brave_falcon`), returned as `globalUniqueId` in the create-game
-response. Read those ids back to build user-team selections. A player can belong
-to only one active game at a time.
-
-Both game squads must also satisfy the composition rule: at least **one
-WICKETKEEPER** and at least **five** players that are `BOWLER` or `ALLROUNDER`
-combined.
+A game references two distinct teams of the same tournament, giving a 22-cricketer
+roster (11 per team). The create-game response includes `team1Cricketers` and
+`team2Cricketers` arrays; read each cricketer's `globalUniqueId` to build
+user-team selections. Both squads must satisfy the composition rule (≥1
+WICKETKEEPER and ≥5 BOWLER+ALLROUNDER), and a team can play only one game at a
+time.
 
 `overs` is required and sets the match length: the game **automatically
 completes** once `overs * 6` ball events have been recorded, or earlier once
@@ -233,10 +301,9 @@ completes** once `overs * 6` ball events have been recorded, or earlier once
 first. An explicit `POST /games/{id}/end` is only needed to stop a game even
 earlier.
 
-The `Authorization` header above must carry a superadmin token; game writes
-(`POST`/`PUT`/`DELETE`, `start`, `end`, `plays`) are superadmin-only, while any
-authenticated user can read games and leaderboards (`GET /games`,
-`GET /games/{id}/leaderboard`).
+The `Authorization` header above must carry a superadmin token; all game APIs
+are superadmin-only, while any authenticated user can read games and leaderboards
+(`GET /games`, `GET /games/{id}`, `GET /games/{id}/leaderboard`).
 
 ### Users
 
@@ -264,14 +331,14 @@ Create a user team:
 curl -X POST http://localhost:8080/api/user-teams \
   -H "Authorization: Bearer <user_token>" \
   -H 'Content-Type: application/json' \
-  -d '{"gameId":1,"userName":"user1","players":["brave_falcon","swift_otter","cool_cobra","eager_jaguar","smart_ace","shiny_raptor","jolly_puma","calm_phoenix","shiny_rocket","silent_puma","vivid_hawk"]}'
+  -d '{"gameId":1,"userName":"user1","cricketers":["abc_wki","abc_bo1","abc_bo2","abc_bo3","abc_bo4","abc_ar1","abc_ar2","abc_ba1","abc_ba2","abc_ba3","def_wki"]}'
 ```
 
 `userName` must reference an existing user from `POST /users`.
 Users can only access and modify their own teams.
-A user team must contain exactly **11 players** drawn from the game's 22-player
-roster (by their server-assigned string ids), including at least **one
-WICKETKEEPER** and at least **five** players that are `BOWLER` or `ALLROUNDER`
+A user team must contain exactly **11 cricketers** drawn from the game's
+22-cricketer roster (by their `globalUniqueId`), including at least **one
+WICKETKEEPER** and at least **five** cricketers that are `BOWLER` or `ALLROUNDER`
 combined.
 User teams cannot be modified once the game has started.
 
@@ -285,7 +352,7 @@ curl -X POST http://localhost:8080/api/games/1/start
 
 curl -X POST http://localhost:8080/api/games/1/plays \
   -H 'Content-Type: application/json' \
-  -d '{"batsman":"brave_falcon","bowler":"swift_otter","outcome":6}'
+  -d '{"batsman":"abc_ba1","bowler":"def_bo1","outcome":6}'
 
 curl http://localhost:8080/api/games/1/leaderboard
 

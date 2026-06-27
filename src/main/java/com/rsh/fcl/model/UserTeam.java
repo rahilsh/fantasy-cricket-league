@@ -49,15 +49,15 @@ public class UserTeam {
 
   @ManyToMany(fetch = FetchType.EAGER)
   @JoinTable(
-      name = "user_team_players",
+      name = "user_team_cricketers",
       joinColumns = @JoinColumn(name = "user_team_id"),
-      inverseJoinColumns = @JoinColumn(name = "player_id"))
-  private Set<Player> players = new LinkedHashSet<>();
+      inverseJoinColumns = @JoinColumn(name = "cricketer_id"))
+  private Set<Cricketer> cricketers = new LinkedHashSet<>();
 
-  public UserTeam(Game game, User user, Set<Player> players) {
+  public UserTeam(Game game, User user, Set<Cricketer> cricketers) {
     this.game = game;
     this.user = user;
-    this.players = new LinkedHashSet<>(players);
+    this.cricketers = new LinkedHashSet<>(cricketers);
   }
 
   public String getUserName() {
@@ -65,7 +65,7 @@ public class UserTeam {
   }
 
   public boolean hasPlayer(String globalUniqueId) {
-    return players.stream().anyMatch(player -> player.getGlobalUniqueId().equals(globalUniqueId));
+    return cricketers.stream().anyMatch(cricketer -> cricketer.getGlobalUniqueId().equals(globalUniqueId));
   }
 
   @Override

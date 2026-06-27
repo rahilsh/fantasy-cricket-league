@@ -4,10 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.util.Objects;
 import lombok.Getter;
@@ -15,11 +12,11 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "players")
+@Table(name = "cricketers")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Player {
+public class Cricketer {
 
   @Id
   @Column(name = "global_unique_id")
@@ -30,13 +27,9 @@ public class Player {
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
-  private PlayerType type;
+  private CricketerType type;
 
-  @ManyToOne(optional = false, fetch = FetchType.LAZY)
-  @JoinColumn(name = "team_id", nullable = false)
-  private Team team;
-
-  public Player(String globalUniqueId, String name, PlayerType type) {
+  public Cricketer(String globalUniqueId, String name, CricketerType type) {
     this.globalUniqueId = globalUniqueId;
     this.name = name;
     this.type = type;
@@ -50,8 +43,8 @@ public class Player {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    Player player = (Player) o;
-    return Objects.equals(globalUniqueId, player.globalUniqueId);
+    Cricketer cricketer = (Cricketer) o;
+    return Objects.equals(globalUniqueId, cricketer.globalUniqueId);
   }
 
   @Override

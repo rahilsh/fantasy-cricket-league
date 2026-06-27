@@ -5,20 +5,20 @@ import com.rsh.fcl.exception.ResourceNotFoundException;
 import com.rsh.fcl.exception.UserNotFoundException;
 import com.rsh.fcl.exception.UserTeamExistsException;
 import com.rsh.fcl.exception.UserTeamNotFoundForGameException;
+import com.rsh.fcl.model.Cricketer;
+import com.rsh.fcl.model.CricketerType;
 import com.rsh.fcl.model.Game;
 import com.rsh.fcl.model.Game.GameStatus;
-import com.rsh.fcl.model.Player;
-import com.rsh.fcl.model.PlayerType;
 import com.rsh.fcl.model.User;
 import com.rsh.fcl.model.UserTeam;
 import com.rsh.fcl.repository.GameRepository;
 import com.rsh.fcl.repository.UserRepository;
 import com.rsh.fcl.repository.UserTeamRepository;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import java.util.LinkedHashSet;
-import java.util.HashSet;
-import java.util.List;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +40,7 @@ public class UserTeamService {
   }
 
   @Transactional
-  public UserTeam createTeamForUser(long gameId, List<String> players, String userName) {
+  public UserTeam createTeamForUser(long gameId, List<String> cricketers, String userName) {
     Game game = gameRepository.findById(gameId)
         .orElseThrow(() -> new GameNotFoundException(gameId));
     ensureGameIsEditable(game);
@@ -48,7 +48,7 @@ public class UserTeamService {
     if (userTeamRepository.existsByGameIdAndUser_UserName(gameId, userName)) {
       throw new UserTeamExistsException(userName, gameId);
     }
-    return userTeamRepository.save(new UserTeam(game, user, resolvePlayers(game, players)));
+    return userTeamRepository.save(new UserTeam(game, user, resolveCricketers(game, cricketers)));
   }
 
   @Transactional(readOnly = true)
@@ -95,7 +95,7 @@ public class UserTeamService {
   public UserTeam updateUserTeam(
       long id,
       long gameId,
-      List<String> players,
+      List<String> cricketers,
       String userName,
       double points) {
     UserTeam userTeam = getUserTeam(id);
@@ -111,7 +111,7 @@ public class UserTeamService {
 
     userTeam.setGame(game);
     userTeam.setUser(user);
-    userTeam.setPlayers(resolvePlayers(game, players));
+    userTeam.setCricketers(resolveCricketers(game, cricketers));
     userTeam.setPoints(points);
     return userTeamRepository.save(userTeam);
   }
@@ -143,33 +143,33 @@ public class UserTeamService {
     }
   }
 
-  private static LinkedHashSet<Player> resolvePlayers(Game game, List<String> playerIds) {
-    if (playerIds.size() != 11) {
-      throw new IllegalArgumentException("User team must contain exactly 11 players");
+  private static LinkedHashSet<Cricketer> resolveCricketers(Game game, List<String> cricketerIds) {
+    if (cricketerIds.size() != 11) {
+      throw new IllegalArgumentException("User team must contain exactly 11 cricketers");
     }
-    LinkedHashSet<Player> selectedPlayers = game.getAllPlayers().stream()
-        .filter(player -> playerIds.contains(player.getGlobalUniqueId()))
+    LinkedHashSet<Cricketer> selected = game.getAllCricketers().stream()
+        .filter(cricketer -> cricketerIds.contains(cricketer.getGlobalUniqueId()))
         .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-    if (selectedPlayers.size() != 11) {
-      throw new IllegalArgumentException("Selected players must belong to the game roster");
+    if (selected.size() != 11) {
+      throw new IllegalArgumentException("Selected cricketers must belong to the game roster");
     }
-    if (new HashSet<>(playerIds).size() != 11) {
-      throw new IllegalArgumentException("Player global unique IDs must be unique");
+    if (new HashSet<>(cricketerIds).size() != 11) {
+      throw new IllegalArgumentException("Cricketer global unique IDs must be unique");
     }
-    long wicketkeepers = selectedPlayers.stream()
-        .filter(player -> player.getType() == PlayerType.WICKETKEEPER)
+    long wicketkeepers = selected.stream()
+        .filter(cricketer -> cricketer.getType() == CricketerType.WICKETKEEPER)
         .count();
     if (wicketkeepers < 1) {
       throw new IllegalArgumentException("User team must contain at least one wicketkeeper");
     }
-    long bowlersAndAllrounders = selectedPlayers.stream()
-        .filter(player -> player.getType() == PlayerType.BOWLER
-            || player.getType() == PlayerType.ALLROUNDER)
+    long bowlersAndAllrounders = selected.stream()
+        .filter(cricketer -> cricketer.getType() == CricketerType.BOWLER
+            || cricketer.getType() == CricketerType.ALLROUNDER)
         .count();
     if (bowlersAndAllrounders < 5) {
       throw new IllegalArgumentException(
           "User team must contain at least 5 bowlers and all-rounders");
     }
-    return selectedPlayers;
+    return selected;
   }
 }
