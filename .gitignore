@@ -28,3 +28,7 @@ replay_pid*
 *.iml
 target
 data
+
+# Python
+__pycache__/
+*.pyc

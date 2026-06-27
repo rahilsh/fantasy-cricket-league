@@ -72,7 +72,7 @@ document is served at `http://localhost:8080/openapi.yaml`.
 
 ## Simulate A Game
 
-`scripts/simulate_game.sh` drives a full game through the REST API: it logs in as
+`scripts/simulate_game.py` drives a full game through the REST API: it logs in as
 superadmin, creates a game with a fixed number of overs, signs up users with
 teams, starts the game, and records one random ball event per delivery. The game
 **auto-completes once all overs are bowled (6 balls per over) or 10 wickets
@@ -81,13 +81,13 @@ their players.
 
 ```bash
 # Start the app first (mvn spring-boot:run), then:
-./scripts/simulate_game.sh
+./scripts/simulate_game.py
 ```
 
 Configure via environment variables: `BASE_URL` (default
 `http://localhost:8080`), `NUM_USERS` (default `4`), `OVERS` (default `5`, i.e.
 30 balls), and the superadmin credentials `FCL_SECURITY_SUPERADMIN_USERNAME` /
-`FCL_SECURITY_SUPERADMIN_PASSWORD`. Requires `curl` and `python3`.
+`FCL_SECURITY_SUPERADMIN_PASSWORD`. Requires `python3` (standard library only).
 
 ## Test And Coverage
 
