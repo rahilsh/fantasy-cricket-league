@@ -57,7 +57,7 @@ public final class DtoMapper {
         .toList();
   }
 
-  private static Set<Long> toPlayerIds(Set<Player> players) {
+  private static Set<String> toPlayerIds(Set<Player> players) {
     return players.stream()
         .map(Player::getGlobalUniqueId)
         .collect(Collectors.toCollection(java.util.LinkedHashSet::new));

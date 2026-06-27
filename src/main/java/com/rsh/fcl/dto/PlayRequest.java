@@ -1,10 +1,10 @@
 package com.rsh.fcl.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 
 public record PlayRequest(
-    @NotNull @Positive Long batsman,
-    @NotNull @Positive Long bowler,
+    @NotBlank String batsman,
+    @NotBlank String bowler,
     @NotNull Integer outcome) {
 }

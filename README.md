@@ -188,37 +188,44 @@ curl -X POST http://localhost:8080/api/games \
         "k": 5,
         "overs": 20,
         "team1Players": [
-          {"globalUniqueId": 1,  "name": "IND P1",  "type": "WICKETKEEPER"},
-          {"globalUniqueId": 2,  "name": "IND P2",  "type": "BOWLER"},
-          {"globalUniqueId": 3,  "name": "IND P3",  "type": "BOWLER"},
-          {"globalUniqueId": 4,  "name": "IND P4",  "type": "BOWLER"},
-          {"globalUniqueId": 5,  "name": "IND P5",  "type": "BOWLER"},
-          {"globalUniqueId": 6,  "name": "IND P6",  "type": "ALLROUNDER"},
-          {"globalUniqueId": 7,  "name": "IND P7",  "type": "ALLROUNDER"},
-          {"globalUniqueId": 8,  "name": "IND P8",  "type": "ALLROUNDER"},
-          {"globalUniqueId": 9,  "name": "IND P9",  "type": "BATTER"},
-          {"globalUniqueId": 10, "name": "IND P10", "type": "BATTER"},
-          {"globalUniqueId": 11, "name": "IND P11", "type": "BATTER"}
+          {"name": "IND P1",  "type": "WICKETKEEPER"},
+          {"name": "IND P2",  "type": "BOWLER"},
+          {"name": "IND P3",  "type": "BOWLER"},
+          {"name": "IND P4",  "type": "BOWLER"},
+          {"name": "IND P5",  "type": "BOWLER"},
+          {"name": "IND P6",  "type": "ALLROUNDER"},
+          {"name": "IND P7",  "type": "ALLROUNDER"},
+          {"name": "IND P8",  "type": "ALLROUNDER"},
+          {"name": "IND P9",  "type": "BATTER"},
+          {"name": "IND P10", "type": "BATTER"},
+          {"name": "IND P11", "type": "BATTER"}
         ],
         "team2Players": [
-          {"globalUniqueId": 12, "name": "PAK P1",  "type": "WICKETKEEPER"},
-          {"globalUniqueId": 13, "name": "PAK P2",  "type": "BOWLER"},
-          {"globalUniqueId": 14, "name": "PAK P3",  "type": "BOWLER"},
-          {"globalUniqueId": 15, "name": "PAK P4",  "type": "BOWLER"},
-          {"globalUniqueId": 16, "name": "PAK P5",  "type": "BOWLER"},
-          {"globalUniqueId": 17, "name": "PAK P6",  "type": "ALLROUNDER"},
-          {"globalUniqueId": 18, "name": "PAK P7",  "type": "ALLROUNDER"},
-          {"globalUniqueId": 19, "name": "PAK P8",  "type": "ALLROUNDER"},
-          {"globalUniqueId": 20, "name": "PAK P9",  "type": "BATTER"},
-          {"globalUniqueId": 21, "name": "PAK P10", "type": "BATTER"},
-          {"globalUniqueId": 22, "name": "PAK P11", "type": "BATTER"}
+          {"name": "PAK P1",  "type": "WICKETKEEPER"},
+          {"name": "PAK P2",  "type": "BOWLER"},
+          {"name": "PAK P3",  "type": "BOWLER"},
+          {"name": "PAK P4",  "type": "BOWLER"},
+          {"name": "PAK P5",  "type": "BOWLER"},
+          {"name": "PAK P6",  "type": "ALLROUNDER"},
+          {"name": "PAK P7",  "type": "ALLROUNDER"},
+          {"name": "PAK P8",  "type": "ALLROUNDER"},
+          {"name": "PAK P9",  "type": "BATTER"},
+          {"name": "PAK P10", "type": "BATTER"},
+          {"name": "PAK P11", "type": "BATTER"}
         ]
       }'
 ```
 
-Each game requires exactly **11 players per team** (22 total). Every player has a
-globally unique `globalUniqueId`, a `name`, and a `type` of `BATTER`, `BOWLER`,
-`ALLROUNDER`, or `WICKETKEEPER`.
+Each game requires exactly **11 players per team** (22 total). A player request
+carries only a `name` and a `type` of `BATTER`, `BOWLER`, `ALLROUNDER`, or
+`WICKETKEEPER`. The server assigns each player a **readable, globally unique
+string id** (e.g. `brave_falcon`), returned as `globalUniqueId` in the create-game
+response. Read those ids back to build user-team selections. A player can belong
+to only one active game at a time.
+
+Both game squads must also satisfy the composition rule: at least **one
+WICKETKEEPER** and at least **five** players that are `BOWLER` or `ALLROUNDER`
+combined.
 
 `overs` is required and sets the match length: the game **automatically
 completes** once `overs * 6` ball events have been recorded, or earlier once
@@ -257,14 +264,15 @@ Create a user team:
 curl -X POST http://localhost:8080/api/user-teams \
   -H "Authorization: Bearer <user_token>" \
   -H 'Content-Type: application/json' \
-  -d '{"gameId":1,"userName":"user1","players":[1,12,2,13,3,14,7,18,8,19,10]}'
+  -d '{"gameId":1,"userName":"user1","players":["brave_falcon","swift_otter","cool_cobra","eager_jaguar","smart_ace","shiny_raptor","jolly_puma","calm_phoenix","shiny_rocket","silent_puma","vivid_hawk"]}'
 ```
 
 `userName` must reference an existing user from `POST /users`.
 Users can only access and modify their own teams.
 A user team must contain exactly **11 players** drawn from the game's 22-player
-roster, including at least **one WICKETKEEPER** and at least **five** players that
-are `BOWLER` or `ALLROUNDER` combined.
+roster (by their server-assigned string ids), including at least **one
+WICKETKEEPER** and at least **five** players that are `BOWLER` or `ALLROUNDER`
+combined.
 User teams cannot be modified once the game has started.
 
 Use `POST /games/{id}/plays` for game simulation because it records the ball event and
@@ -277,7 +285,7 @@ curl -X POST http://localhost:8080/api/games/1/start
 
 curl -X POST http://localhost:8080/api/games/1/plays \
   -H 'Content-Type: application/json' \
-  -d '{"batsman":1,"bowler":22,"outcome":6}'
+  -d '{"batsman":"brave_falcon","bowler":"swift_otter","outcome":6}'
 
 curl http://localhost:8080/api/games/1/leaderboard
 

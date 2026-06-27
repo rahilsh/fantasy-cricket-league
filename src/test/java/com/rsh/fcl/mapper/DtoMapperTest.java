@@ -51,8 +51,8 @@ class DtoMapperTest {
   void toUserTeamResponseMapsPlayerIds() {
     Game game = TestFixtures.game(1L, 3, 5);
     Set<Player> players = new LinkedHashSet<>();
-    players.add(new Player(1L, "P1", PlayerType.WICKETKEEPER));
-    players.add(new Player(2L, "P2", PlayerType.BOWLER));
+    players.add(new Player("a1", "P1", PlayerType.WICKETKEEPER));
+    players.add(new Player("a2", "P2", PlayerType.BOWLER));
     UserTeam userTeam = new UserTeam(game, TestFixtures.user(2L, "bob"), players);
     userTeam.setId(5L);
     userTeam.setPoints(8.0);
@@ -63,21 +63,21 @@ class DtoMapperTest {
     assertThat(response.gameId()).isEqualTo(1L);
     assertThat(response.userName()).isEqualTo("bob");
     assertThat(response.points()).isEqualTo(8.0);
-    assertThat(response.players()).containsExactly(1L, 2L);
+    assertThat(response.players()).containsExactly("a1", "a2");
   }
 
   @Test
   void toBallEventResponseMapsFields() {
     Game game = TestFixtures.game(1L, 3, 5);
-    BallEvent event = new BallEvent(game, 4L, 17L, 6);
+    BallEvent event = new BallEvent(game, "a4", "b7", 6);
     event.setId(11L);
 
     BallEventResponse response = DtoMapper.toBallEventResponse(event);
 
     assertThat(response.id()).isEqualTo(11L);
     assertThat(response.gameId()).isEqualTo(1L);
-    assertThat(response.batsman()).isEqualTo(4L);
-    assertThat(response.bowler()).isEqualTo(17L);
+    assertThat(response.batsman()).isEqualTo("a4");
+    assertThat(response.bowler()).isEqualTo("b7");
     assertThat(response.score()).isEqualTo(6);
   }
 

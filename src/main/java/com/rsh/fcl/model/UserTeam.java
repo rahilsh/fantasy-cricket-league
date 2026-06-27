@@ -64,8 +64,8 @@ public class UserTeam {
     return user != null ? user.getUserName() : null;
   }
 
-  public boolean hasPlayer(long globalUniqueId) {
-    return players.stream().anyMatch(player -> player.getGlobalUniqueId() == globalUniqueId);
+  public boolean hasPlayer(String globalUniqueId) {
+    return players.stream().anyMatch(player -> player.getGlobalUniqueId().equals(globalUniqueId));
   }
 
   @Override

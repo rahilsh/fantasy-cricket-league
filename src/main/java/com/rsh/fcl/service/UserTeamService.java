@@ -40,7 +40,7 @@ public class UserTeamService {
   }
 
   @Transactional
-  public UserTeam createTeamForUser(long gameId, List<Long> players, String userName) {
+  public UserTeam createTeamForUser(long gameId, List<String> players, String userName) {
     Game game = gameRepository.findById(gameId)
         .orElseThrow(() -> new GameNotFoundException(gameId));
     ensureGameIsEditable(game);
@@ -95,7 +95,7 @@ public class UserTeamService {
   public UserTeam updateUserTeam(
       long id,
       long gameId,
-      List<Long> players,
+      List<String> players,
       String userName,
       double points) {
     UserTeam userTeam = getUserTeam(id);
@@ -143,7 +143,7 @@ public class UserTeamService {
     }
   }
 
-  private static LinkedHashSet<Player> resolvePlayers(Game game, List<Long> playerIds) {
+  private static LinkedHashSet<Player> resolvePlayers(Game game, List<String> playerIds) {
     if (playerIds.size() != 11) {
       throw new IllegalArgumentException("User team must contain exactly 11 players");
     }

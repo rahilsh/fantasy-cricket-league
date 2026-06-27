@@ -8,8 +8,8 @@ class PlayerTest {
 
   @Test
   void playersAreEqualWhenGlobalUniqueIdMatches() {
-    Player a = new Player(7L, "Alice", PlayerType.BATTER);
-    Player b = new Player(7L, "Different Name", PlayerType.BOWLER);
+    Player a = new Player("brave_lion", "Alice", PlayerType.BATTER);
+    Player b = new Player("brave_lion", "Different Name", PlayerType.BOWLER);
 
     assertThat(a).isEqualTo(b);
     assertThat(a).hasSameHashCodeAs(b);
@@ -17,15 +17,15 @@ class PlayerTest {
 
   @Test
   void playersDifferWhenGlobalUniqueIdDiffers() {
-    Player a = new Player(7L, "Alice", PlayerType.BATTER);
-    Player b = new Player(8L, "Alice", PlayerType.BATTER);
+    Player a = new Player("brave_lion", "Alice", PlayerType.BATTER);
+    Player b = new Player("calm_otter", "Alice", PlayerType.BATTER);
 
     assertThat(a).isNotEqualTo(b);
   }
 
   @Test
   void playerIsNotEqualToOtherTypesOrNull() {
-    Player a = new Player(7L, "Alice", PlayerType.BATTER);
+    Player a = new Player("brave_lion", "Alice", PlayerType.BATTER);
 
     assertThat(a).isNotEqualTo(null);
     assertThat(a).isNotEqualTo("not-a-player");
@@ -34,9 +34,9 @@ class PlayerTest {
 
   @Test
   void constructorPopulatesFields() {
-    Player player = new Player(42L, "Zed", PlayerType.WICKETKEEPER);
+    Player player = new Player("swift_eagle", "Zed", PlayerType.WICKETKEEPER);
 
-    assertThat(player.getGlobalUniqueId()).isEqualTo(42L);
+    assertThat(player.getGlobalUniqueId()).isEqualTo("swift_eagle");
     assertThat(player.getName()).isEqualTo("Zed");
     assertThat(player.getType()).isEqualTo(PlayerType.WICKETKEEPER);
   }

@@ -29,15 +29,15 @@ public class BallEvent {
   private Game game;
 
   @Column(nullable = false)
-  private long batsman;
+  private String batsman;
 
   @Column(nullable = false)
-  private long bowler;
+  private String bowler;
 
   @Column(nullable = false)
   private int score;
 
-  public BallEvent(Game game, long batsman, long bowler, int score) {
+  public BallEvent(Game game, String batsman, String bowler, int score) {
     this.game = game;
     this.batsman = batsman;
     this.bowler = bowler;

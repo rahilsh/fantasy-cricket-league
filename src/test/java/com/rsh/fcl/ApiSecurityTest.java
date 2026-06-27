@@ -12,6 +12,9 @@ import com.rsh.fcl.repository.GameRepository;
 import com.rsh.fcl.repository.PlayerRepository;
 import com.rsh.fcl.repository.UserRepository;
 import com.rsh.fcl.repository.UserTeamRepository;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,13 +79,13 @@ class ApiSecurityTest {
     mockMvc.perform(post("/api/games")
             .header("Authorization", "Bearer " + userToken)
             .contentType(MediaType.APPLICATION_JSON)
-            .content(gameRequestBody("IND", "PAK", 3, 5, 1, 12)))
+            .content(gameRequestBody("IND", "PAK", 3, 5)))
         .andExpect(status().isForbidden());
 
     mockMvc.perform(post("/api/games")
             .header("Authorization", "Bearer " + superadminToken)
             .contentType(MediaType.APPLICATION_JSON)
-            .content(gameRequestBody("IND", "PAK", 3, 5, 1, 12)))
+            .content(gameRequestBody("IND", "PAK", 3, 5)))
         .andExpect(status().isCreated());
   }
 
@@ -106,32 +109,11 @@ class ApiSecurityTest {
     String user1Token = signupAndGetToken("user1", "password123");
     String user2Token = signupAndGetToken("user2", "password123");
 
-    long gameId = idFrom(mockMvc.perform(post("/api/games")
-            .header("Authorization", "Bearer " + adminToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(gameRequestBody("IND", "PAK", 3, 5, 1, 12)))
-        .andExpect(status().isCreated())
-        .andReturn()
-        .getResponse()
-        .getContentAsString());
+    JsonNode game = createGame(adminToken, "IND", "PAK", 3);
+    long gameId = game.get("id").asLong();
 
-    long user1TeamId = idFrom(mockMvc.perform(post("/api/user-teams")
-            .header("Authorization", "Bearer " + user1Token)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"gameId\":" + gameId + ",\"userName\":\"ignored\",\"players\":[1,2,3,4,5,6,7,8,9,10,11]}"))
-        .andExpect(status().isCreated())
-        .andReturn()
-        .getResponse()
-        .getContentAsString());
-
-    long user2TeamId = idFrom(mockMvc.perform(post("/api/user-teams")
-            .header("Authorization", "Bearer " + user2Token)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"gameId\":" + gameId + ",\"userName\":\"ignored\",\"players\":[12,13,14,15,16,17,18,19,20,21,22]}"))
-        .andExpect(status().isCreated())
-        .andReturn()
-        .getResponse()
-        .getContentAsString());
+    long user1TeamId = createTeam(user1Token, gameId, validXi(game, 0));
+    long user2TeamId = createTeam(user2Token, gameId, validXi(game, 1));
 
     mockMvc.perform(get("/api/user-teams/" + user1TeamId)
             .header("Authorization", "Bearer " + user1Token))
@@ -177,7 +159,7 @@ class ApiSecurityTest {
   void allowsUserToReadSingleGame() throws Exception {
     String superadminToken = loginAndGetToken("fcl-admin", "fcl-admin-password");
     String userToken = signupAndGetToken("user1", "password123");
-    long gameId = createGame(superadminToken, "IND", "PAK", 3);
+    long gameId = createGame(superadminToken, "IND", "PAK", 3).get("id").asLong();
 
     mockMvc.perform(get("/api/games/" + gameId)
             .header("Authorization", "Bearer " + userToken))
@@ -190,9 +172,10 @@ class ApiSecurityTest {
   void userManagesOwnTeamLifecycleThroughFilters() throws Exception {
     String superadminToken = loginAndGetToken("fcl-admin", "fcl-admin-password");
     String userToken = signupAndGetToken("user1", "password123");
-    long gameId = createGame(superadminToken, "IND", "PAK", 3);
+    JsonNode game = createGame(superadminToken, "IND", "PAK", 3);
+    long gameId = game.get("id").asLong();
 
-    long teamId = createTeam(userToken, gameId, "[1,2,3,4,5,6,7,8,9,10,11]");
+    long teamId = createTeam(userToken, gameId, validXi(game, 0));
 
     mockMvc.perform(get("/api/user-teams")
             .header("Authorization", "Bearer " + userToken))
@@ -208,7 +191,7 @@ class ApiSecurityTest {
     mockMvc.perform(put("/api/user-teams/" + teamId)
             .header("Authorization", "Bearer " + userToken)
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"gameId\":" + gameId + ",\"userName\":\"ignored\",\"players\":[12,13,14,15,16,17,18,19,20,21,22]}"))
+            .content(userTeamBody(gameId, validXi(game, 2))))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.players", org.hamcrest.Matchers.hasSize(11)));
 
@@ -222,9 +205,10 @@ class ApiSecurityTest {
     String superadminToken = loginAndGetToken("fcl-admin", "fcl-admin-password");
     String user1Token = signupAndGetToken("user1", "password123");
     String user2Token = signupAndGetToken("user2", "password123");
-    long gameId = createGame(superadminToken, "IND", "PAK", 3);
-    createTeam(user1Token, gameId, "[1,2,3,4,5,6,7,8,9,10,11]");
-    createTeam(user2Token, gameId, "[12,13,14,15,16,17,18,19,20,21,22]");
+    JsonNode game = createGame(superadminToken, "IND", "PAK", 3);
+    long gameId = game.get("id").asLong();
+    createTeam(user1Token, gameId, validXi(game, 0));
+    createTeam(user2Token, gameId, validXi(game, 1));
 
     mockMvc.perform(get("/api/user-teams")
             .header("Authorization", "Bearer " + superadminToken))
@@ -237,22 +221,23 @@ class ApiSecurityTest {
         .andExpect(jsonPath("$.content", org.hamcrest.Matchers.hasSize(2)));
   }
 
-  private long createGame(String token, String team1, String team2, int k) throws Exception {
-    return idFrom(mockMvc.perform(post("/api/games")
+  private JsonNode createGame(String token, String team1, String team2, int k) throws Exception {
+    String json = mockMvc.perform(post("/api/games")
             .header("Authorization", "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)
-            .content(gameRequestBody(team1, team2, k, 5, 1, 12)))
+            .content(gameRequestBody(team1, team2, k, 5)))
         .andExpect(status().isCreated())
         .andReturn()
         .getResponse()
-        .getContentAsString());
+        .getContentAsString();
+    return objectMapper.readTree(json);
   }
 
-  private long createTeam(String token, long gameId, String playersJson) throws Exception {
+  private long createTeam(String token, long gameId, List<String> players) throws Exception {
     return idFrom(mockMvc.perform(post("/api/user-teams")
             .header("Authorization", "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"gameId\":" + gameId + ",\"userName\":\"ignored\",\"players\":" + playersJson + "}"))
+            .content(userTeamBody(gameId, players)))
         .andExpect(status().isCreated())
         .andReturn()
         .getResponse()
@@ -267,8 +252,7 @@ class ApiSecurityTest {
         .andReturn()
         .getResponse()
         .getContentAsString();
-    JsonNode node = objectMapper.readTree(response);
-    return node.get("accessToken").asText();
+    return objectMapper.readTree(response).get("accessToken").asText();
   }
 
   private String loginAndGetToken(String userName, String password) throws Exception {
@@ -279,41 +263,76 @@ class ApiSecurityTest {
         .andReturn()
         .getResponse()
         .getContentAsString();
-    JsonNode node = objectMapper.readTree(response);
-    return node.get("accessToken").asText();
+    return objectMapper.readTree(response).get("accessToken").asText();
   }
 
-  private long idFrom(String json) throws Exception {
-    JsonNode node = objectMapper.readTree(json);
-    return node.get("id").asLong();
+  private long idFrom(String json) {
+    return objectMapper.readTree(json).get("id").asLong();
   }
 
-  private String gameRequestBody(String team1, String team2, int k, int overs,
-      long team1StartId, long team2StartId) {
-    StringBuilder builder = new StringBuilder();
-    builder.append("{\"team1\":\"").append(team1)
-        .append("\",\"team2\":\"").append(team2)
-        .append("\",\"k\":").append(k)
-        .append(",\"overs\":").append(overs)
-        .append(",\"team1Players\":").append(playersJson(team1, team1StartId))
-        .append(",\"team2Players\":").append(playersJson(team2, team2StartId))
-        .append("}");
-    return builder.toString();
+  private String gameRequestBody(String team1, String team2, int k, int overs) {
+    return "{\"team1\":\"" + team1 + "\",\"team2\":\"" + team2 + "\",\"k\":" + k
+        + ",\"overs\":" + overs
+        + ",\"team1Players\":" + playersJson(team1)
+        + ",\"team2Players\":" + playersJson(team2) + "}";
   }
 
-  private String playersJson(String teamName, long startId) {
+  private String playersJson(String teamName) {
     StringBuilder builder = new StringBuilder("[");
     for (int i = 0; i < 11; i++) {
       if (i > 0) {
         builder.append(',');
       }
-      long playerId = startId + i;
-      builder.append("{\"globalUniqueId\":").append(playerId)
-          .append(",\"name\":\"").append(teamName).append("-").append(playerId)
+      builder.append("{\"name\":\"").append(teamName).append("-").append(i + 1)
           .append("\",\"type\":\"").append(playerType(i)).append("\"}");
     }
-    builder.append(']');
-    return builder.toString();
+    return builder.append(']').toString();
+  }
+
+  private String userTeamBody(long gameId, List<String> players) {
+    return "{\"gameId\":" + gameId + ",\"userName\":\"ignored\",\"players\":"
+        + jsonArray(players) + "}";
+  }
+
+  private static String jsonArray(List<String> values) {
+    StringBuilder builder = new StringBuilder("[");
+    for (int i = 0; i < values.size(); i++) {
+      if (i > 0) {
+        builder.append(',');
+      }
+      builder.append('"').append(values.get(i)).append('"');
+    }
+    return builder.append(']').toString();
+  }
+
+  /** Builds a valid XI (>=1 wicketkeeper, >=5 bowler/all-rounder) from a created game's roster. */
+  private static List<String> validXi(JsonNode game, int variant) {
+    List<String> all = new ArrayList<>();
+    List<String> wicketkeepers = new ArrayList<>();
+    List<String> pacemen = new ArrayList<>();
+    for (String team : List.of("team1Players", "team2Players")) {
+      for (JsonNode player : game.get(team)) {
+        String id = player.get("globalUniqueId").asString();
+        all.add(id);
+        switch (player.get("type").asString()) {
+          case "WICKETKEEPER" -> wicketkeepers.add(id);
+          case "BOWLER", "ALLROUNDER" -> pacemen.add(id);
+          default -> { }
+        }
+      }
+    }
+    LinkedHashSet<String> selection = new LinkedHashSet<>();
+    selection.add(wicketkeepers.get(0));
+    for (int i = 0; i < 5; i++) {
+      selection.add(pacemen.get((variant + i) % pacemen.size()));
+    }
+    for (String id : all) {
+      if (selection.size() == 11) {
+        break;
+      }
+      selection.add(id);
+    }
+    return new ArrayList<>(selection);
   }
 
   private static String playerType(int offset) {

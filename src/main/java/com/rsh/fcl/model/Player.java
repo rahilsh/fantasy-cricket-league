@@ -23,7 +23,7 @@ public class Player {
 
   @Id
   @Column(name = "global_unique_id")
-  private Long globalUniqueId;
+  private String globalUniqueId;
 
   @Column(nullable = false)
   private String name;
@@ -36,7 +36,7 @@ public class Player {
   @JoinColumn(name = "team_id", nullable = false)
   private Team team;
 
-  public Player(Long globalUniqueId, String name, PlayerType type) {
+  public Player(String globalUniqueId, String name, PlayerType type) {
     this.globalUniqueId = globalUniqueId;
     this.name = name;
     this.type = type;

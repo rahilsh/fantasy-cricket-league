@@ -15,8 +15,8 @@ class GameTest {
   @Test
   void addTeamLinksGameAndCollectsAllPlayers() {
     Game game = new Game(3, 5);
-    game.addTeam(TestFixtures.team("Team Alpha", 1));
-    game.addTeam(TestFixtures.team("Team Beta", 12));
+    game.addTeam(TestFixtures.team("Team Alpha", "a"));
+    game.addTeam(TestFixtures.team("Team Beta", "b"));
 
     assertThat(game.getTeams()).hasSize(2);
     assertThat(game.getTeams()).allSatisfy(team -> assertThat(team.getGame()).isSameAs(game));

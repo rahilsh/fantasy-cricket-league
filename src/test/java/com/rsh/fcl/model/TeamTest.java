@@ -9,7 +9,7 @@ class TeamTest {
   @Test
   void addPlayerSetsBackReferenceAndStoresPlayer() {
     Team team = new Team("Team Alpha");
-    Player player = new Player(1L, "Alice", PlayerType.BATTER);
+    Player player = new Player("a1", "Alice", PlayerType.BATTER);
 
     team.addPlayer(player);
 

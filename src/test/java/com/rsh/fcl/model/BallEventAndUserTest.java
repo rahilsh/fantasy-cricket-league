@@ -9,11 +9,11 @@ class BallEventAndUserTest {
   @Test
   void ballEventConstructorPopulatesFields() {
     Game game = new Game(3, 5);
-    BallEvent event = new BallEvent(game, 4L, 17L, 6);
+    BallEvent event = new BallEvent(game, "a4", "b7", 6);
 
     assertThat(event.getGame()).isSameAs(game);
-    assertThat(event.getBatsman()).isEqualTo(4L);
-    assertThat(event.getBowler()).isEqualTo(17L);
+    assertThat(event.getBatsman()).isEqualTo("a4");
+    assertThat(event.getBowler()).isEqualTo("b7");
     assertThat(event.getScore()).isEqualTo(6);
   }
 

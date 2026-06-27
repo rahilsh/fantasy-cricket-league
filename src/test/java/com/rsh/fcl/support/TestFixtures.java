@@ -28,31 +28,39 @@ public final class TestFixtures {
     return PlayerType.BATTER;
   }
 
-  /** Eleven valid players (1 WK, 4 bowlers, 3 all-rounders, 3 batters). */
-  public static List<PlayerRequest> playerRequests(long baseId, String prefix) {
+  /** Eleven valid player requests (1 WK, 4 bowlers, 3 all-rounders, 3 batters). */
+  public static List<PlayerRequest> playerRequests(String prefix) {
     List<PlayerRequest> players = new ArrayList<>();
     for (int offset = 0; offset < 11; offset++) {
-      players.add(new PlayerRequest(baseId + offset, prefix + " P" + (offset + 1),
-          typeForOffset(offset)));
+      players.add(new PlayerRequest(prefix + " P" + (offset + 1), typeForOffset(offset)));
     }
     return players;
   }
 
-  public static Team team(String name, long baseId) {
+  /** Readable player id used by fixtures, e.g. {@code "a1"} for offset 0 of prefix {@code "a"}. */
+  public static String playerId(String prefix, int offset) {
+    return prefix + (offset + 1);
+  }
+
+  public static Team team(String name, String idPrefix) {
     Team team = new Team(name);
     for (int offset = 0; offset < 11; offset++) {
-      team.addPlayer(new Player(baseId + offset, name + " P" + (offset + 1),
+      team.addPlayer(new Player(playerId(idPrefix, offset), name + " P" + (offset + 1),
           typeForOffset(offset)));
     }
     return team;
   }
 
-  /** A persisted-looking game with two valid 11-player squads (ids 1..11 and 12..22). */
+  /**
+   * A persisted-looking game with two valid 11-player squads. Team Alpha ids are {@code a1..a11}
+   * and Team Beta ids are {@code b1..b11} (offset 0 = WICKETKEEPER, 1-4 = BOWLER, 5-7 = ALLROUNDER,
+   * 8-10 = BATTER).
+   */
   public static Game game(Long id, int k, int overs) {
     Game game = new Game(k, overs);
     game.setId(id);
-    game.addTeam(team("Team Alpha", 1));
-    game.addTeam(team("Team Beta", 12));
+    game.addTeam(team("Team Alpha", "a"));
+    game.addTeam(team("Team Beta", "b"));
     return game;
   }
 

@@ -2,8 +2,10 @@
 """Drive a full Fantasy Cricket League game through the REST API.
 
 It logs in as superadmin, creates a game with two 11-player squads (22 players
-total, each player having a globally unique id, name and type), signs up a set
-of users (each with a valid random XI picked from the 22 roster players), starts
+total). Each player request carries only a name and type; the server assigns a
+readable, globally unique id (e.g. ``brave_falcon``) which is read back from the
+create-game response. It then signs up a set of users (each with a valid random
+XI picked from the 22 roster players), starts
 the game, records random ball events, and prints the winner with their players.
 The game auto-ends once all overs are bowled or 10 wickets fall, whichever comes
 first.
@@ -37,14 +39,11 @@ API = f"{BASE_URL}/api"
 NUM_EVENTS = OVERS * 6
 OUTCOMES = [1, 2, 4, 6, -1]
 
-# Player ids must be globally unique across games, so derive a per-run base
-# offset from the current time and lay out 22 consecutive ids for the roster.
-ROSTER_BASE = int(time.time()) * 100
 TEAM_SIZE = 11
 
 # Local offset within a team -> player type. This guarantees every team has one
 # wicketkeeper and at least five bowlers/all-rounders, matching the squad rules
-# enforced when users pick their XI.
+# enforced both when the game is created and when users pick their XI.
 TYPE_BY_OFFSET = (
     "WICKETKEEPER",  # 0
     "BOWLER", "BOWLER", "BOWLER", "BOWLER",  # 1-4
@@ -53,19 +52,15 @@ TYPE_BY_OFFSET = (
 )
 
 
-def build_squad(base_id, team_name):
-    """Return (list_of_player_request_dicts, list_of_player_ids) for one team."""
-    players = []
-    for offset in range(TEAM_SIZE):
-        pid = base_id + offset
-        players.append(
-            {
-                "globalUniqueId": pid,
-                "name": f"{team_name} P{offset + 1}",
-                "type": TYPE_BY_OFFSET[offset],
-            }
-        )
-    return players
+def build_squad(team_name):
+    """Return a list of player request dicts (name + type only) for one team.
+
+    The server assigns each player a readable globally unique id.
+    """
+    return [
+        {"name": f"{team_name} P{offset + 1}", "type": TYPE_BY_OFFSET[offset]}
+        for offset in range(TEAM_SIZE)
+    ]
 
 
 def pick_valid_xi(roster):
@@ -112,8 +107,6 @@ def signup(username, password):
 
 def create_game(sa_token):
     print(f"==> Creating game ({OVERS} overs = {NUM_EVENTS} balls)")
-    team1_players = build_squad(ROSTER_BASE, "Team Alpha")
-    team2_players = build_squad(ROSTER_BASE + TEAM_SIZE, "Team Beta")
     status, game = request(
         "POST",
         "/games",
@@ -123,14 +116,16 @@ def create_game(sa_token):
             "team2": "Team Beta",
             "k": NUM_USERS,
             "overs": OVERS,
-            "team1Players": team1_players,
-            "team2Players": team2_players,
+            "team1Players": build_squad("Team Alpha"),
+            "team2Players": build_squad("Team Beta"),
         },
     )
     if status not in (200, 201) or not game or "id" not in game:
         raise SystemExit(f"error: game creation failed (HTTP {status}): {game}")
-    roster = team1_players + team2_players
+    # The server assigns the readable ids, so read the roster back from the response.
+    roster = game["team1Players"] + game["team2Players"]
     print(f"    game id = {game['id']} ({len(roster)} players in roster)")
+    print(f"    roster ids = {[p['globalUniqueId'] for p in roster]}")
     return game["id"], roster
 
 
@@ -176,7 +171,7 @@ def play_ball_events(game_id, sa_token, roster):
         if outcome == -1:
             wickets += 1
         print(
-            f"    ball {ball:2d}: batsman={batsman:2d} bowler={bowler:2d} "
+            f"    ball {ball:2d}: batsman={batsman:<14} bowler={bowler:<14} "
             f"outcome={outcome:3d}  (wickets={wickets})"
         )
 

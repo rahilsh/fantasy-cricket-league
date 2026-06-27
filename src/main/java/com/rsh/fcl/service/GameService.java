@@ -18,8 +18,7 @@ import com.rsh.fcl.repository.GameRepository;
 import com.rsh.fcl.repository.UserTeamRepository;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import java.util.Comparator;
@@ -38,14 +37,17 @@ public class GameService {
   private final GameRepository gameRepository;
   private final UserTeamRepository userTeamRepository;
   private final BallEventRepository ballEventRepository;
+  private final ReadablePlayerIdGenerator playerIdGenerator;
 
   public GameService(
       GameRepository gameRepository,
       UserTeamRepository userTeamRepository,
-      BallEventRepository ballEventRepository) {
+      BallEventRepository ballEventRepository,
+      ReadablePlayerIdGenerator playerIdGenerator) {
     this.gameRepository = gameRepository;
     this.userTeamRepository = userTeamRepository;
     this.ballEventRepository = ballEventRepository;
+    this.playerIdGenerator = playerIdGenerator;
   }
 
   @Transactional
@@ -120,7 +122,7 @@ public class GameService {
   }
 
   @Transactional
-  public BallEvent play(long gameId, long batsman, long bowler, int outcomeScore) {
+  public BallEvent play(long gameId, String batsman, String bowler, int outcomeScore) {
     Game game = findGame(gameId);
     validateGameState(gameId, game);
 
@@ -177,8 +179,8 @@ public class GameService {
 
   private static void applyBallEvent(
       int outcome,
-      long batsman,
-      long bowler,
+      String batsman,
+      String bowler,
       List<UserTeam> userTeamsForGame) {
     switch (outcome) {
       case 1 -> updatePoints(userTeamsForGame, batsman, 0.5);
@@ -202,13 +204,13 @@ public class GameService {
     }
   }
 
-  private static void updatePoints(List<UserTeam> userTeams, long playerId, double delta) {
+  private static void updatePoints(List<UserTeam> userTeams, String playerId, double delta) {
     userTeams.stream()
         .filter(userTeam -> userTeam.hasPlayer(playerId))
         .forEach(userTeam -> userTeam.setPoints(userTeam.getPoints() + delta));
   }
 
-  private static void applyTeams(
+  private void applyTeams(
       Game game,
       String team1Name,
       List<PlayerRequest> team1Players,
@@ -220,41 +222,31 @@ public class GameService {
       syncTeam(existingTeams.get(1), team2Name, team2Players);
     } else {
       game.getTeams().clear();
-      game.addTeam(buildTeam(team1Name, team1Players));
-      game.addTeam(buildTeam(team2Name, team2Players));
+      Set<String> reservedIds = new LinkedHashSet<>();
+      game.addTeam(buildTeam(team1Name, team1Players, reservedIds));
+      game.addTeam(buildTeam(team2Name, team2Players, reservedIds));
     }
   }
 
-  private static Team buildTeam(String teamName, List<PlayerRequest> players) {
+  private Team buildTeam(String teamName, List<PlayerRequest> players, Set<String> reservedIds) {
     Team team = new Team(teamName);
     for (PlayerRequest playerRequest : players) {
-      team.addPlayer(new Player(playerRequest.globalUniqueId(), playerRequest.name(),
-          playerRequest.type()));
+      String globalUniqueId = playerIdGenerator.generateUnique(reservedIds);
+      reservedIds.add(globalUniqueId);
+      team.addPlayer(new Player(globalUniqueId, playerRequest.name(), playerRequest.type()));
     }
     return team;
   }
 
   private static void syncTeam(Team team, String teamName, List<PlayerRequest> players) {
     team.setName(teamName);
-    Map<Long, Player> existingPlayers = team.getPlayers().stream()
-        .collect(Collectors.toMap(Player::getGlobalUniqueId, player -> player));
-
-    LinkedHashSet<Player> updatedPlayers = new LinkedHashSet<>();
-    for (PlayerRequest playerRequest : players) {
-      Player player = existingPlayers.get(playerRequest.globalUniqueId());
-      if (player == null) {
-        player = new Player(playerRequest.globalUniqueId(), playerRequest.name(),
-            playerRequest.type());
-        player.setTeam(team);
-      } else {
-        player.setName(playerRequest.name());
-        player.setType(playerRequest.type());
-      }
-      updatedPlayers.add(player);
+    List<Player> existingPlayers = new ArrayList<>(team.getPlayers());
+    for (int index = 0; index < existingPlayers.size() && index < players.size(); index++) {
+      Player player = existingPlayers.get(index);
+      PlayerRequest playerRequest = players.get(index);
+      player.setName(playerRequest.name());
+      player.setType(playerRequest.type());
     }
-
-    team.getPlayers().retainAll(updatedPlayers);
-    team.getPlayers().addAll(updatedPlayers);
   }
 
   private static void validateRoster(Game game) {
@@ -265,7 +257,7 @@ public class GameService {
     for (Team team : teams) {
       validateTeamComposition(team);
     }
-    List<Long> globalIds = game.getAllPlayers().stream()
+    List<String> globalIds = game.getAllPlayers().stream()
         .map(Player::getGlobalUniqueId)
         .toList();
     if (new LinkedHashSet<>(globalIds).size() != globalIds.size()) {
