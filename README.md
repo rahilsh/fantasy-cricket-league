@@ -75,8 +75,9 @@ document is served at `http://localhost:8080/openapi.yaml`.
 `scripts/simulate_game.sh` drives a full game through the REST API: it logs in as
 superadmin, creates a game with a fixed number of overs, signs up users with
 teams, starts the game, and records one random ball event per delivery. The game
-**auto-completes once all overs are bowled** (6 balls per over), after which the
-script prints the winner with their players.
+**auto-completes once all overs are bowled (6 balls per over) or 10 wickets
+fall**, whichever comes first, after which the script prints the winner with
+their players.
 
 ```bash
 # Start the app first (mvn spring-boot:run), then:
@@ -168,8 +169,10 @@ curl -X POST http://localhost:8080/api/games \
 ```
 
 `overs` is required and sets the match length: the game **automatically
-completes** once `overs * 6` ball events have been recorded, so an explicit
-`POST /games/{id}/end` is only needed to stop a game early.
+completes** once `overs * 6` ball events have been recorded, or earlier once
+**10 wickets** (ball events with outcome `-1`) have fallen — whichever comes
+first. An explicit `POST /games/{id}/end` is only needed to stop a game even
+earlier.
 
 The `Authorization` header above must carry a superadmin token; game writes
 (`POST`/`PUT`/`DELETE`, `start`, `end`, `plays`) are superadmin-only, while any

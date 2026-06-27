@@ -39,7 +39,7 @@ paths:
         '200':
           description: Paged games response
     post:
-      summary: Create game (requires overs; auto-completes after overs*6 balls)
+      summary: Create game (requires overs; auto-completes after overs*6 balls or 10 wickets)
       responses:
         '201':
           description: Created

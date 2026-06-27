@@ -3,8 +3,9 @@
 # simulate_game.sh — drive a full Fantasy Cricket League game through the REST API.
 #
 # It logs in as superadmin, creates a game, signs up a set of users (each with a
-# random XI of up to 11 players), starts the game, records a configurable number
-# of random ball events, ends the game, and prints the winner with their players.
+# random XI of up to 11 players), starts the game, records random ball events,
+# and prints the winner with their players. The game auto-ends once all overs are
+# bowled or 10 wickets fall, whichever comes first.
 #
 # Requirements: curl, python3, and a running app (e.g. `mvn spring-boot:run`).
 #
@@ -64,20 +65,27 @@ done
 echo "==> Starting game"
 curl -fsS -X POST "$API/games/$GID/start" -H "Authorization: Bearer $SA_TOKEN" >/dev/null
 
-echo "==> Recording $NUM_EVENTS ball events ($OVERS overs); game auto-ends on the final ball"
+echo "==> Recording up to $NUM_EVENTS ball events ($OVERS overs); game auto-ends after all overs or 10 wickets"
 OUTCOMES=(1 2 4 6 -1)
+WICKETS=0
 for e in $(seq 1 "$NUM_EVENTS"); do
   batsman=$(( (RANDOM % 22) + 1 ))
   bowler=$(( (RANDOM % 22) + 1 ))
   outcome=${OUTCOMES[$((RANDOM % ${#OUTCOMES[@]}))]}
-  curl -fsS -X POST "$API/games/$GID/plays" \
+  http=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API/games/$GID/plays" \
     -H "Authorization: Bearer $SA_TOKEN" -H 'Content-Type: application/json' \
-    -d "{\"batsman\":$batsman,\"bowler\":$bowler,\"outcome\":$outcome}" >/dev/null
-  printf '    ball %2d: batsman=%2d bowler=%2d outcome=%3s\n' "$e" "$batsman" "$bowler" "$outcome"
+    -d "{\"batsman\":$batsman,\"bowler\":$bowler,\"outcome\":$outcome}")
+  if [ "$http" != "200" ]; then
+    echo "    game already ended (HTTP $http); stopping after $((e - 1)) balls"
+    break
+  fi
+  [ "$outcome" = "-1" ] && WICKETS=$((WICKETS + 1))
+  printf '    ball %2d: batsman=%2d bowler=%2d outcome=%3s  (wickets=%d)\n' \
+    "$e" "$batsman" "$bowler" "$outcome" "$WICKETS"
 done
 
 STATUS=$(curl -fsS "$API/games/$GID" -H "Authorization: Bearer $SA_TOKEN" | jval "['status']")
-echo "==> Game status after $OVERS overs: $STATUS"
+echo "==> Game status: $STATUS"
 
 echo "==> Final leaderboard"
 LB=$(curl -fsS "$API/games/$GID/leaderboard" -H "Authorization: Bearer $SA_TOKEN")

@@ -19,6 +19,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class Game {
 
+  public static final int ALL_OUT_WICKETS = 10;
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
@@ -42,6 +44,9 @@ public class Game {
   @Column(name = "balls_bowled", nullable = false)
   private int ballsBowled = 0;
 
+  @Column(name = "wickets", nullable = false)
+  private int wickets = 0;
+
   public Game(String team1, String team2, int k, int overs) {
     this.team1 = team1;
     this.team2 = team2;
@@ -51,6 +56,10 @@ public class Game {
 
   public int totalBalls() {
     return overs * 6;
+  }
+
+  public boolean isInningsOver() {
+    return ballsBowled >= totalBalls() || wickets >= ALL_OUT_WICKETS;
   }
 
   public enum GameStatus {

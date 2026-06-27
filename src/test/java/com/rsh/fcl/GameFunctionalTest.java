@@ -337,6 +337,39 @@ class GameFunctionalTest {
         .andExpect(jsonPath("$.message").value("Game " + gameId + " already completed"));
   }
 
+  @Test
+  void automaticallyEndsGameWhenTenWicketsFall() throws Exception {
+    long gameId = createGame("IND", "PAK", 3, 20);
+    createUser("user1");
+    createUserTeam(gameId, "user1", "[1,2,3]");
+
+    mockMvc.perform(post("/api/games/{id}/start", gameId))
+        .andExpect(status().isOk());
+
+    for (int wicket = 1; wicket <= 9; wicket++) {
+      play(gameId, 1, 2, -1);
+    }
+
+    mockMvc.perform(get("/api/games/{id}", gameId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+        .andExpect(jsonPath("$.wickets").value(9));
+
+    play(gameId, 1, 2, -1);
+
+    mockMvc.perform(get("/api/games/{id}", gameId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("COMPLETED"))
+        .andExpect(jsonPath("$.wickets").value(10))
+        .andExpect(jsonPath("$.ballsBowled").value(10));
+
+    mockMvc.perform(post("/api/games/{id}/plays", gameId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"batsman\":1,\"bowler\":2,\"outcome\":6}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("Game " + gameId + " already completed"));
+  }
+
   private long createGame(String team1, String team2, int k, int overs) throws Exception {
     String body = "{\"team1\":\"" + team1 + "\",\"team2\":\"" + team2 + "\",\"k\":" + k
         + ",\"overs\":" + overs + "}";

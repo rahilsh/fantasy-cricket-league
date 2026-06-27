@@ -105,7 +105,10 @@ public class GameService {
     userTeamRepository.saveAll(userTeamsForGame);
 
     game.setBallsBowled(game.getBallsBowled() + 1);
-    if (game.getBallsBowled() >= game.totalBalls()) {
+    if (outcomeScore == -1) {
+      game.setWickets(game.getWickets() + 1);
+    }
+    if (game.isInningsOver()) {
       game.setStatus(GameStatus.COMPLETED);
     }
     gameRepository.save(game);
