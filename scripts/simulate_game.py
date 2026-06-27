@@ -5,7 +5,8 @@ The script logs in as superadmin and walks the whole onboarding flow:
 
   1. Create 22 cricketers (standalone reference data). Each cricketer is created
      with a client-supplied globally unique id in the ``<3 letters>_<3 letters>``
-     format (e.g. ``abc_xyz``) plus a name and a type.
+     format (e.g. ``abc_xyz``) plus a readable ``Adjective Noun`` name (e.g.
+     ``Brave Falcon``) and a type.
   2. Create a tournament and onboard two teams into it, each made of 11 of those
      cricketers (referenced by id). Then start the tournament.
   3. Create a game between the two teams by passing their team ids.
@@ -58,7 +59,21 @@ TYPE_BY_OFFSET = (
     "BATTER", "BATTER", "BATTER",  # 8-10
 )
 
+# Docker-style word lists used to give cricketers readable, human-friendly names
+# (e.g. "Brave Falcon") independent of their globally unique id.
+ADJECTIVES = (
+    "brave", "swift", "calm", "eager", "shiny", "jolly", "vivid", "silent",
+    "clever", "mighty", "noble", "rapid", "fierce", "gentle", "bold", "lucky",
+    "sturdy", "nimble", "proud", "wise", "keen", "loyal", "sunny", "cosmic",
+)
+NOUNS = (
+    "falcon", "otter", "cobra", "jaguar", "ace", "raptor", "puma", "phoenix",
+    "rocket", "hawk", "tiger", "panther", "eagle", "lion", "wolf", "viper",
+    "bison", "rhino", "shark", "comet", "lynx", "drake", "stag", "orca",
+)
+
 _used_ids = set()
+_used_names = set()
 
 
 def unique_cricketer_id():
@@ -71,6 +86,15 @@ def unique_cricketer_id():
         )
         if candidate not in _used_ids:
             _used_ids.add(candidate)
+            return candidate
+
+
+def unique_cricketer_name():
+    """Return a unique, readable ``Adjective Noun`` cricketer name."""
+    while True:
+        candidate = f"{random.choice(ADJECTIVES)} {random.choice(NOUNS)}".title()
+        if candidate not in _used_names:
+            _used_names.add(candidate)
             return candidate
 
 
@@ -91,23 +115,34 @@ def request(method, path, token=None, body=None):
 
 
 def login(username, password):
-    _, body = request("POST", "/auth/login", body={"userName": username, "password": password})
+    status, body = request(
+        "POST", "/auth/login", body={"userName": username, "password": password}
+    )
+    if status != 200 or not body or "accessToken" not in body:
+        raise SystemExit(f"error: login failed for {username} (HTTP {status}): {body}")
     return body["accessToken"]
 
 
 def signup(username, password):
-    _, body = request("POST", "/auth/signup", body={"userName": username, "password": password})
-    return body["accessToken"]
+    """Sign up a user, or log in if they already exist (idempotent across reruns)."""
+    status, body = request(
+        "POST", "/auth/signup", body={"userName": username, "password": password}
+    )
+    if status in (200, 201) and body and "accessToken" in body:
+        return body["accessToken"]
+    # The persistent H2 database keeps users across runs, so a repeat signup is
+    # rejected; fall back to logging the existing user in instead.
+    return login(username, password)
 
 
-def create_cricketer(sa_token, team_name, offset):
-    """Create one cricketer with a client-supplied id; return its id."""
+def create_cricketer(sa_token, offset):
+    """Create one cricketer with a client-supplied id and readable name; return its id."""
     cricketer_id = unique_cricketer_id()
     status, body = request(
         "POST",
         f"/cricketers?globalUniqueId={cricketer_id}",
         token=sa_token,
-        body={"name": f"{team_name} P{offset + 1}", "type": TYPE_BY_OFFSET[offset]},
+        body={"name": unique_cricketer_name(), "type": TYPE_BY_OFFSET[offset]},
     )
     if status not in (200, 201):
         raise SystemExit(f"error: cricketer creation failed (HTTP {status}): {body}")
@@ -116,7 +151,7 @@ def create_cricketer(sa_token, team_name, offset):
 
 def onboard_team(sa_token, tournament_id, team_name):
     """Create 11 cricketers and onboard them as a team; return the team id."""
-    cricketer_ids = [create_cricketer(sa_token, team_name, offset) for offset in range(TEAM_SIZE)]
+    cricketer_ids = [create_cricketer(sa_token, offset) for offset in range(TEAM_SIZE)]
     status, body = request(
         "POST",
         f"/tournaments/{tournament_id}/teams",
