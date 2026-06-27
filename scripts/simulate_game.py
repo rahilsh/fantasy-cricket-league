@@ -63,10 +63,7 @@ def signup(username, password):
     return body["accessToken"]
 
 
-def main():
-    print(f"==> Logging in as superadmin ({SUPERADMIN_USER})")
-    sa_token = login(SUPERADMIN_USER, SUPERADMIN_PASS)
-
+def create_game(sa_token):
     print(f"==> Creating game ({OVERS} overs = {NUM_EVENTS} balls)")
     _, game = request(
         "POST",
@@ -74,9 +71,11 @@ def main():
         token=sa_token,
         body={"team1": "Team Alpha", "team2": "Team Beta", "k": NUM_USERS, "overs": OVERS},
     )
-    game_id = game["id"]
-    print(f"    game id = {game_id}")
+    print(f"    game id = {game['id']}")
+    return game["id"]
 
+
+def register_users_with_teams(game_id):
     suffix = int(time.time())
     print(f"==> Signing up {NUM_USERS} users and creating teams (max 11 players each)")
     for i in range(1, NUM_USERS + 1):
@@ -91,6 +90,8 @@ def main():
         )
         print(f"    {username:<18} -> {players}")
 
+
+def play_ball_events(game_id, sa_token):
     print("==> Starting game")
     request("POST", f"/games/{game_id}/start", token=sa_token)
 
@@ -122,6 +123,16 @@ def main():
     _, game = request("GET", f"/games/{game_id}", token=sa_token)
     print(f"==> Game status: {game['status']}")
 
+
+def fetch_winning_players(game_id, sa_token, winner_name):
+    _, teams = request("GET", f"/user-teams?gameId={game_id}&size=1000", token=sa_token)
+    return next(
+        (sorted(t["players"]) for t in teams["content"] if t["userName"] == winner_name),
+        [],
+    )
+
+
+def print_results(game_id, sa_token):
     print("==> Final leaderboard")
     _, leaderboard = request("GET", f"/games/{game_id}/leaderboard", token=sa_token)
     if not leaderboard:
@@ -131,17 +142,23 @@ def main():
         print(f"    {rank}. {entry['userName']:<18} {entry['points']:>7} pts")
 
     winner = leaderboard[0]
-    _, teams = request("GET", f"/user-teams?gameId={game_id}&size=1000", token=sa_token)
-    winning_players = next(
-        (sorted(t["players"]) for t in teams["content"] if t["userName"] == winner["userName"]),
-        [],
-    )
+    winning_players = fetch_winning_players(game_id, sa_token, winner["userName"])
 
     print()
     print("================================================")
     print(f"  WINNER: {winner['userName']}  ({winner['points']} points)")
     print(f"  Players: {winning_players}")
     print("================================================")
+
+
+def main():
+    print(f"==> Logging in as superadmin ({SUPERADMIN_USER})")
+    sa_token = login(SUPERADMIN_USER, SUPERADMIN_PASS)
+
+    game_id = create_game(sa_token)
+    register_users_with_teams(game_id)
+    play_ball_events(game_id, sa_token)
+    print_results(game_id, sa_token)
 
 
 if __name__ == "__main__":
